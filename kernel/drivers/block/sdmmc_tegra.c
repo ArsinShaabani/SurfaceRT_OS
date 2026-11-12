@@ -17,6 +17,7 @@
 #include <srtos/gpio.h>
 #include <srtos/clock.h>
 #include "tegra30.h"
+#include <srtos/sd_bits.h>
 
 #define SDMMC_TIMEOUT_MS 500
 #define MAX_BLOCKS_PER_XFER 64
@@ -221,13 +222,8 @@ static int mmc_pio_transfer(struct sdmmc_host *h, u64 lba, u32 blocks, void *buf
 #define CMD_CRC_CHECK 0x08
 #define CMD_IDX_CHECK 0x10
 
-static u32 extract_bits(const u32 *resp, int start, int end)
-{
-    u64 v = ((u64)resp[3] << 96) | ((u64)resp[2] << 64) | ((u64)resp[1] << 32) |
-            resp[0];
-    int nbits = end - start + 1;
-    return (u32)((v >> (128 - 1 - end)) & ((1ull << nbits) - 1ull));
-}
+/* Bit extraction lives in a header so the host tests can verify it. */
+#define extract_bits(resp, start, end) sd_extract_bits((resp), (start), (end))
 
 static int sd_send_acmd(struct sdmmc_host *h, u32 acmd, u32 arg, u32 *resp)
 {

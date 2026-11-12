@@ -97,7 +97,6 @@ static inline u16 bswap16(u16 v)
 }
 
 static const u8 broadcast_mac[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-static const u8 zero_mac[6] = { 0, 0, 0, 0, 0, 0 };
 
 void net_init(void)
 {

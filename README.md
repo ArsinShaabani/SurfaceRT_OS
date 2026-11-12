@@ -74,7 +74,7 @@ Surface RT از کارخانه با **Secure Boot قفل** عرضه شده و ف
 | `host/srdisplay` | sender: screen capture, dirty rectangles, RLE, SRDP/1 encoder |
 | `sim/` | host simulator running the real sink engine over real UDP |
 | `scripts/` | FAT32 builder, GPT writer, image assembler (pure Python) |
-| `tests/` | 51 host C checks + 48 Python checks |
+| `tests/` | 57 host C checks + 48 Python checks |
 
 ## Build
 

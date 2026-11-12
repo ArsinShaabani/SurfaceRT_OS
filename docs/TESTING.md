@@ -14,6 +14,7 @@ make sim       # build the display sink simulator
 | `srdp raw` | a fragmented rectangle reassembles byte-exactly into the back buffer |
 | `srdp rle` | run length decoding, exact pixel placement, dirty rect reported |
 | `srdp malformed` | 2000 fuzzed packets plus out-of-panel rectangles, oversized payloads and orphan fragments never crash or write outside the back buffer |
+| `sd csd` | 128 bit SD/MMC response bit extraction (the 16 GB capacity field lives above bit 63, so this catches shift-overflow bugs) |
 | `elfload` | loads the real `KERNEL.ELF` at a 1 MiB bias and verifies **every** `R_ARM_ABS32` site equals `file value + bias` (198 of them) |
 
 ## What the Python tests cover (`tests/pytests/run_tests.py`)

@@ -210,36 +210,6 @@ typedef struct {
     u32 offset, info;
 } elf_rel;
 
-static const char *module_entry_symbol(const u8 *img, u32 size)
-{
-    const elf_ehdr *eh = (const elf_ehdr *)img;
-    const elf_shdr *sh;
-    u32 i;
-
-    if (!eh->shoff || !eh->shnum || eh->shoff + eh->shnum * sizeof(elf_shdr) > size) {
-        return 0;
-    }
-    sh = (const elf_shdr *)(img + eh->shoff);
-    for (i = 0; i < eh->shnum; i++) {
-        if (sh[i].type != SHT_SYMTAB) {
-            continue;
-        }
-        {
-            const elf_sym *syms = (const elf_sym *)(img + sh[i].offset);
-            u32 n = sh[i].size / sizeof(elf_sym);
-            const char *strtab = (const char *)(img + sh[sh[i].link].offset);
-            u32 j;
-            for (j = 0; j < n; j++) {
-                const char *name = strtab + syms[j].name;
-                if (!strcmp(name, "srt_module_init") && syms[j].shndx) {
-                    return name; /* found; address handled by caller */
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 static int module_symbol_value(const u8 *img, u32 size, const char *want,
                                u32 *value)
 {
@@ -268,7 +238,7 @@ static int module_symbol_value(const u8 *img, u32 size, const char *want,
     return -1;
 }
 
-static int module_relocate(u8 *img, u32 size, u32 bias)
+static int __unused module_relocate(u8 *img, u32 size, u32 bias)
 {
     const elf_ehdr *eh = (const elf_ehdr *)img;
     const elf_shdr *sh;
@@ -422,7 +392,6 @@ int svc_load_module(const char *path)
         pr_err("svc: %s does not export srt_module_init\n", path);
         goto out;
     }
-    (void)module_relocate;
 
     m = &modules[nr_modules];
     memset(m, 0, sizeof(*m));

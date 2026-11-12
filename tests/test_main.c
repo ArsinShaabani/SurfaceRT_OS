@@ -13,6 +13,7 @@
 #include <srtos/string.h>
 #include <srtos/srdp.h>
 #include <srtos/srdp_core.h>
+#include <srtos/sd_bits.h>
 #include "../boot/elfload.h"
 
 static int g_failures;
@@ -288,6 +289,40 @@ static void test_srdp_malformed(void)
     CHECK(1);
 }
 
+/* ------------------------------------------------------------------ sd --- */
+static void test_sd_csd(void)
+{
+    /* CSD v2 layout: c_size = bits 48..69, read_bl_len = 80..83, c_size_mult =
+     * 39..41.  A 16 GB card reports c_size = 0x0070FF (28895) -> ~14.8 GiB. */
+    u32 resp[4] = { 0, 0, 0, 0 };
+    u32 c_size = 0x0070FFu;
+    u32 block_nr = 0x0F;
+    int bit;
+
+    printf("sd csd\n");
+    for (bit = 0; bit < 22; bit++) {
+        if (c_size & (1u << bit)) {
+            int pos = 48 + bit;
+            resp[pos / 32] |= 1u << (pos % 32);
+        }
+    }
+    for (bit = 0; bit < 4; bit++) {
+        if (block_nr & (1u << bit)) {
+            int pos = 80 + bit;
+            resp[pos / 32] |= 1u << (pos % 32);
+        }
+    }
+    CHECK_EQ(sd_extract_bits(resp, 48, 69), c_size);
+    CHECK_EQ(sd_extract_bits(resp, 80, 83), block_nr);
+    CHECK_EQ(sd_extract_bits(resp, 0, 3), 0);
+    /* the capacity the driver derives from it: (c_size+1) * 512 KiB */
+    CHECK_EQ(((u64)(sd_extract_bits(resp, 48, 69) + 1) * 1024ull * 512ull) >> 30,
+             14ull);
+    /* out of range requests must be rejected, not silently shifted */
+    CHECK_EQ(sd_extract_bits(resp, 100, 140), 0);
+    CHECK_EQ(sd_extract_bits(resp, -1, 4), 0);
+}
+
 /* --------------------------------------------------------------- elfload --- */
 struct fake_alloc_ctx {
     unsigned char *arena;
@@ -435,6 +470,7 @@ int main(int argc, char **argv)
     test_srdp_raw();
     test_srdp_rle();
     test_srdp_malformed();
+    test_sd_csd();
     test_elfload(kernel);
 
     printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);

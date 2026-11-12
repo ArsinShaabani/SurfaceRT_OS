@@ -42,7 +42,7 @@ dist/MANIFEST.txt           sizes and SHA-256 of every artefact
 
 ```sh
 make image        # rebuild only the images
-make test         # 51 host checks (C) + 48 checks (Python)
+make test         # 57 host checks (C) + 48 checks (Python)
 make sim          # build the display-sink simulator
 make clean
 ```

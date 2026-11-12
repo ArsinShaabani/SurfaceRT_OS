@@ -62,7 +62,7 @@ static int fat_read_sector(struct fat32_fs *fs, u64 lba, u8 *buf)
     return fs->bd->read(fs->bd, lba, sectors_per_block(fs), buf);
 }
 
-static int fat_write_sector(struct fat32_fs *fs, u64 lba, u8 *buf)
+static int __unused fat_write_sector(struct fat32_fs *fs, u64 lba, u8 *buf)
 {
     if (!fs->writable) {
         return -1;
@@ -84,31 +84,6 @@ static int fat_next_cluster(struct fat32_fs *fs, u32 cluster, u32 *next)
         return -1;
     }
     *next = readl((uptr)sector + in_sector) & 0x0FFFFFFFu;
-    return 0;
-}
-
-static int fat_set_cluster(struct fat32_fs *fs, u32 cluster, u32 value)
-{
-    u8 sector[512];
-    u64 off = (u64)cluster * 4u;
-    u64 lba = fs->fat_lba + (off / fs->sector_size);
-    u32 in_sector = (u32)(off % fs->sector_size);
-    u32 f;
-
-    if (!fs->writable || fs->sector_size > sizeof(sector)) {
-        return -1;
-    }
-    for (f = 0; f < fs->num_fats; f++) {
-        u64 l = lba + (u64)f * fs->fat_size;
-        if (fat_read_sector(fs, l, sector) != 0) {
-            return -1;
-        }
-        writel((readl((uptr)sector + in_sector) & 0xF0000000u) |
-                   (value & 0x0FFFFFFFu), (uptr)sector + in_sector);
-        if (fat_write_sector(fs, l, sector) != 0) {
-            return -1;
-        }
-    }
     return 0;
 }
 

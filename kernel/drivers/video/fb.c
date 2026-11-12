@@ -247,7 +247,7 @@ static int glyph_index(int c)
 
 void fb_draw_text(u32 x, u32 y, const char *text, u32 fg, u32 bg, u32 scale)
 {
-    u32 cx = x, cy = y, i, col, line;
+    u32 cx = x, cy = y, col, line;
     if (!scale) {
         scale = 1;
     }
