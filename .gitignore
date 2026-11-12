@@ -1,0 +1,27 @@
+# build outputs
+build/
+out/
+dist/
+*.o
+*.d
+*.elf
+*.efi
+*.bin
+*.img
+*.iso
+*.map
+
+# toolchain cache
+.toolchain/
+
+# host / python
+__pycache__/
+*.pyc
+.venv/
+host/srdisplay/.frames/
+*.ppm
+
+# editors
+.vscode/
+.idea/
+*.swp
