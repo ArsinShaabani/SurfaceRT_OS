@@ -6,6 +6,7 @@ builder/reader pair, the GPT writer and the image assembly, plus a protocol
 vector check against the C header sizes.
 """
 
+import hashlib
 import os
 import pathlib
 import struct
@@ -173,6 +174,70 @@ def test_toolchain_fetch_helpers():
                   "pinned hash %s" % label)
 
 
+def test_usb_package():
+    """The one-command USB package must be complete and must verify itself."""
+    print("usb package")
+    kernel = os.path.join(ROOT, "build", "kernel", "KERNEL.ELF")
+    if not os.path.exists(kernel):
+        print("  SKIP: build the OS first (make)")
+        return
+
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        platform = DEFAULT_PLATFORM
+        with open(kernel, "rb") as f:
+            data = f.read()
+        at = data.find(b"SRTOS-PLATFORM:")
+        if at >= 0:
+            platform = data[at + len(b"SRTOS-PLATFORM:"):].split(b"\x00")[0].decode()
+        rc = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "mkimage.py"),
+             "--build-dir", os.path.join(ROOT, "build"), "--out", tmp,
+             "--platform", platform, "--usb-package",
+             "--esp-size", str(40 * 1024 * 1024),
+             "--data-size", str(8 * 1024 * 1024),
+             "--install-size", str(64 * 1024 * 1024)],
+            capture_output=True, text=True)
+        check(rc.returncode == 0, "mkimage --usb-package: %s" %
+              (rc.stderr.strip()[-200:] or "ok"))
+
+        pkg = os.path.join(tmp, "usb")
+        for name in ("srtos-usb.img", "README.txt", "SHA256SUMS.txt",
+                     "flash-windows.ps1", "flash-linux.sh", "device-check.ps1",
+                     "install-esp.ps1", "verify_stick.py",
+                     "UNLOCK-AND-BOOT.md", "scripts/fat32.py", "scripts/gpt.py"):
+            check(os.path.exists(os.path.join(pkg, name)), "package has %s" % name)
+
+        image = os.path.join(pkg, "srtos-usb.img")
+        sums = open(os.path.join(pkg, "SHA256SUMS.txt")).read().split()
+        digest = hashlib.sha256(open(image, "rb").read()).hexdigest()
+        check(sums and sums[0] == digest, "SHA256SUMS matches the image")
+        readme = open(os.path.join(pkg, "README.txt")).read()
+        check(platform in readme, "README names the platform")
+        check("Volume-Down" in readme, "README explains the boot buttons")
+        guide = open(os.path.join(pkg, "UNLOCK-AND-BOOT.md")).read()
+        check("Golden Keys" in guide and "Yahallo" in guide,
+              "unlock guide covers both stages")
+
+        # the packaged verifier must work standalone (no repository around it)
+        rc = subprocess.run([sys.executable, os.path.join(pkg, "verify_stick.py"),
+                             image], capture_output=True, text=True)
+        check(rc.returncode == 0, "packaged verifier accepts the image: %s" %
+              (rc.stdout.strip().splitlines() or [""])[-1])
+
+        # ... and must reject a damaged one
+        broken = os.path.join(tmp, "broken.img")
+        with open(image, "rb") as src, open(broken, "wb") as dst:
+            dst.write(src.read())
+        with open(broken, "r+b") as f:
+            f.seek(0)
+            f.write(b"\x00" * 512)
+        rc = subprocess.run([sys.executable, os.path.join(pkg, "verify_stick.py"),
+                             broken], capture_output=True, text=True)
+        check(rc.returncode != 0, "packaged verifier rejects a wiped MBR")
+
+
 def test_platforms():
     """Both supported boards must be described consistently end to end."""
     print("platforms")
@@ -265,6 +330,7 @@ def test_images():
         check(kernel2[18:20] == b"\x28\x00", "kernel machine is ARM (0x28)")
         check(rd.read("/SRTOS/PLATFORM").decode().startswith(platform),
               "platform marker on the ESP")
+        check(rd.read("/SRTOS/DEFAULT")[:5] == b"srtos", "boot selector on the ESP")
         cfg = rd.read("/SRTOS/BOOT.CFG")
         check(b"kernel=KERNEL.ELF" in cfg, "boot config content")
         with open(os.path.join(tmp, "srtos-usb.img"), "rb") as f:
@@ -279,6 +345,7 @@ def main():
     test_fat32()
     test_gpt()
     test_platforms()
+    test_usb_package()
     test_protocol_vectors()
     test_toolchain_fetch_helpers()
     test_images()

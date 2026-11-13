@@ -248,6 +248,37 @@ static int cmd_drivers(int argc, char **argv)
     return 0;
 }
 
+static int cmd_boot(int argc, char **argv)
+{
+    char buf[16];
+    u32 len = 0;
+
+    if (argc < 2) {
+        char current[16] = "srtos";
+        if (vfs_read_file("/srtos/default", current, sizeof(current) - 1,
+                          &len) == 0) {
+            current[len] = 0;
+        }
+        printk("next boot: %s   (usage: boot srtos|windows)\n", current);
+        return 0;
+    }
+    memset(buf, 0, sizeof(buf));
+    if (!strcasecmp(argv[1], "windows")) {
+        strlcpy(buf, "windows", sizeof(buf));
+    } else if (!strcasecmp(argv[1], "srtos")) {
+        strlcpy(buf, "srtos", sizeof(buf));
+    } else {
+        printk("boot: unknown target %s (srtos|windows)\n", argv[1]);
+        return -1;
+    }
+    if (vfs_write_file("/srtos/default", buf, sizeof(buf)) != 0) {
+        printk("boot: cannot write /srtos/default - is the ESP mounted?\n");
+        return -1;
+    }
+    printk("boot: next boot -> %s (reboot to apply)\n", buf);
+    return 0;
+}
+
 static int cmd_install(int argc, char **argv)
 {
     int part = 0;
@@ -312,6 +343,7 @@ const struct command __shell_commands_start[] __section(".shell_cmds") = {
     CMD(log, "get/set the log level"),
     CMD(drivers, "driver and mmu summary"),
     CMD(install, "install SRTOS to the internal eMMC"),
+    CMD(boot, "choose the next boot target (srtos|windows)"),
     CMD(clock, "timers and uptime"),
     CMD(platform, "platform summary"),
     CMD(reboot, "reboot the tablet"),

@@ -434,7 +434,7 @@ def build_tests(build, verbose, host_cc=None, run_tests=True):
 
 
 def build_image(build, out, esp_size=None, data_size=None, install_size=None,
-                verbose=False, platform=DEFAULT_PLATFORM):
+                verbose=False, platform=DEFAULT_PLATFORM, usb_package=False):
     def show(path):
         try:
             return str(Path(path).resolve().relative_to(ROOT))
@@ -451,6 +451,8 @@ def build_image(build, out, esp_size=None, data_size=None, install_size=None,
         cmd += ["--data-size", str(data_size)]
     if install_size:
         cmd += ["--install-size", str(install_size)]
+    if usb_package:
+        cmd.append("--usb-package")
     return run(cmd, quiet=not verbose) and 0 or 0
 
 
@@ -511,6 +513,9 @@ def main(argv=None):
     ap.add_argument("--esp-size", type=int, default=0)
     ap.add_argument("--data-size", type=int, default=0)
     ap.add_argument("--install-size", type=int, default=0)
+    ap.add_argument("--usb-package", action="store_true",
+                    help="also write a complete usb/ folder (flashers, verifier,"
+                         " device check, unlock guide) next to the images")
     ap.add_argument("--fetch", action="store_true",
                     help="download the pinned toolchain first if it is missing")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -578,7 +583,8 @@ def main(argv=None):
             build_services(cross, build, jobs, args.verbose)
         if args.command in ("all", "image"):
             build_image(build, out, args.esp_size, args.data_size,
-                        args.install_size, args.verbose, args.platform)
+                        args.install_size, args.verbose, args.platform,
+                        args.usb_package)
     except BuildError as exc:
         print("\nbuild failed: %s" % exc, file=sys.stderr)
         return 1

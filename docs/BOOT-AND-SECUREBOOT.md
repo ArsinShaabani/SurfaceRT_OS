@@ -1,5 +1,9 @@
 # Booting on a Surface RT - the honest version
 
+> Looking for the step by step version?  `docs/UNLOCK-AND-BOOT.md` walks through
+> preparing the stick, checking the tablet, the Golden Keys -> Yahallo unlock and
+> the boot itself, with the tools in `tools/usb/`.
+
 ## What the firmware does
 
 The Surface RT (Tegra 3, 2012) ships a 32-bit ARM UEFI firmware with **Secure

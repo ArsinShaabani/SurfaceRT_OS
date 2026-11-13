@@ -182,8 +182,11 @@ struct efi_boot_services {
     void *locate_handle;
     void *locate_device_path;
     void *install_configuration_table;
-    void *load_image;
-    void *start_image;
+    efi_status (*load_image)(uint8_t boot_policy, efi_handle parent,
+                             void *device_path, void *source, size_t source_size,
+                             efi_handle *image);
+    efi_status (*start_image)(efi_handle image, size_t *exit_size,
+                              void **exit_data);
     void *exit;
     void *unload_image;
     efi_status (*exit_boot_services)(efi_handle, size_t);

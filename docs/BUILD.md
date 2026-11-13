@@ -144,6 +144,7 @@ py scripts\build.py kernel --platform tegra114  # kernel only, for a quick check
 | `make image` | `py scripts\build.py image` | rebuild only the images |
 | `make test` | `build.cmd test` | 57 host checks (C) + 48 checks (Python) |
 | `make sim` | `py scripts\build.py sim` | display-sink simulator |
+| `make usb` | `py scripts\build.py all --usb-package` | complete USB package in `dist/.../usb/` |
 | `make doctor` | `py scripts\build.py doctor` | show the detected toolchain |
 | - | `py scripts\build.py all --fetch` | build, installing the toolchain first |
 | - | `fetch-toolchain.cmd` | only install/repair the toolchain |

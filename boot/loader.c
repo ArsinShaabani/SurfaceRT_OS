@@ -441,6 +441,102 @@ static void memmap_add_reserved(struct srt_bootinfo *bi, uint64_t base, uint64_t
     bi->mem_region_count++;
 }
 
+
+/* ---------------------------------------------------------- chainloading --- */
+/*
+ * A UEFI device path for a file on the volume we were loaded from, built by
+ * copying our own FilePath and appending a MEDIA/FILEPATH node.  Used to hand
+ * control to another boot manager (see the dual boot note in BOOT.CFG).
+ */
+static void *device_path_for(const uint16_t *file)
+{
+    static efi_guid li_guid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
+    efi_loaded_image *li = 0;
+    uint8_t *src;
+    size_t src_len, name_len, total, node_len, off;
+    uint8_t *out;
+    static const uint8_t end_node[4] = { 0x7F, 0xFF, 0x04, 0x00 };
+
+    if (EFI_ERROR(g_bs->handle_protocol(g_image_handle, &li_guid, (void **)&li)) ||
+        !li || !li->file_path) {
+        return 0;
+    }
+    src = (uint8_t *)li->file_path;
+    /* walk to the end node of our own path */
+    src_len = 0;
+    for (;;) {
+        uint8_t sub = src[src_len + 1];
+        uint16_t len = (uint16_t)(src[src_len + 2] | (src[src_len + 3] << 8));
+        src_len += len;
+        if (sub == 0x7F || len < 4 || src_len > 4096) {
+            break;
+        }
+    }
+    name_len = 0;
+    while (file[name_len]) {
+        name_len++;
+    }
+    node_len = 4 + (name_len + 1) * 2;
+    total = src_len + node_len + sizeof(end_node);
+    out = (uint8_t *)0;
+    if (g_bs->allocate_pool(EFI_LOADER_DATA, total, (void **)&out) != EFI_SUCCESS) {
+        return 0;
+    }
+    memset(out, 0, total);
+    memcpy(out, src, src_len);
+    off = src_len;
+    out[off + 0] = 0x04;              /* MEDIA_DEVICE_PATH   */
+    out[off + 1] = 0x04;              /* MEDIA_FILEPATH_DP   */
+    out[off + 2] = (uint8_t)(node_len & 0xFF);
+    out[off + 3] = (uint8_t)(node_len >> 8);
+    memcpy(out + off + 4, file, (name_len + 1) * 2);
+    off += node_len;
+    memcpy(out + off, end_node, sizeof(end_node));
+    return out;
+}
+
+/* Returns 0 if the other boot manager was started (it never returns). */
+static int chainload(const uint16_t *path)
+{
+    void *dp = device_path_for(path);
+    efi_handle handle = 0;
+    efi_status st;
+    size_t exit_size = 0;
+    void *exit_data = 0;
+
+    if (!dp || !g_bs->load_image) {
+        return -1;
+    }
+    st = g_bs->load_image(0, g_image_handle, dp, 0, 0, &handle);
+    if (EFI_ERROR(st) || !handle) {
+        log_printf("loader: cannot load the other boot manager (0x%llx)\n", st);
+        return -1;
+    }
+    log_printf("loader: handing over to it\n");
+    st = g_bs->start_image(handle, &exit_size, &exit_data);
+    log_printf("loader: it returned (0x%llx)\n", st);
+    return -1;
+}
+
+/* Read the 16 byte selector file; 1 = Windows boot manager requested. */
+static int want_windows(void)
+{
+    uint16_t path[64];
+    size_t len = 0;
+    char *data;
+    int result = 0;
+
+    utf8_to_ucs2("\\SRTOS\\DEFAULT", path, 64);
+    data = (char *)fs_read_all(path, &len);
+    if (data) {
+        if (len >= 7 && !strncasecmp(data, "windows", 7)) {
+            result = 1;
+        }
+        g_bs->free_pool(data);
+    }
+    return result;
+}
+
 /* ------------------------------------------------------------------- main ---- */
 typedef void (*kernel_entry_fn)(struct srt_bootinfo *bi, uint32_t magic);
 
@@ -470,6 +566,21 @@ static void load_and_jump(void)
 
     if (cfg.timeout_ms) {
         delay_ms(cfg.timeout_ms);
+    }
+
+    /* Dual boot: \SRTOS\DEFAULT selects who boots.  "srtos" (or no file)
+     * boots the kernel below; "windows" chainloads the original Windows boot
+     * manager that install-esp.ps1 preserved as bootmgfw-windows.efi. */
+    if (want_windows()) {
+        uint16_t win_path[80];
+        utf8_to_ucs2("\\EFI\\Microsoft\\Boot\\bootmgfw-windows.efi", win_path, 80);
+        log_printf("loader: DEFAULT=windows, chainloading the Windows boot manager\n");
+        if (chainload(win_path) != 0) {
+            utf8_to_ucs2("\\EFI\\Microsoft\\Boot\\bootmgfw.efi", win_path, 80);
+            if (chainload(win_path) != 0) {
+                log_printf("loader: no Windows boot manager found, booting SRTOS\n");
+            }
+        }
     }
 
     /* --- kernel image --------------------------------------------------- */

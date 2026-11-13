@@ -17,9 +17,11 @@ Write the USB image with:
 import argparse
 import hashlib
 import os
+import shutil
 import struct
 import sys
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,6 +30,7 @@ import gpt
 from platforms import PLATFORMS, DEFAULT_PLATFORM
 
 MIB = 1024 * 1024
+ROOT = Path(__file__).resolve().parent.parent
 
 BOOT_CFG = """# SurfaceRT_OS boot configuration - read by BOOTARM.EFI
 #
@@ -94,6 +97,9 @@ def build_esp(build_dir, size, loader, kernel, modules, platform=DEFAULT_PLATFOR
     fs.add_file("/SRTOS/PLATFORM",
                 ("%s\n%s\n%s\n%s\n" %
                  (platform, soc["board"], soc["soc"], soc["cpu"])).encode())
+    # fixed 16 byte selector: the kernel's shell rewrites it in place, which is
+    # why FAT writes of the same size are all it needs
+    fs.add_file("/SRTOS/DEFAULT", b"srtos".ljust(16, b"\x00"))
     fs.add_file("/SRTOS/VERSION", ("SurfaceRT_OS 1.0.0 (Tegra Sink)\n"
                                    "built %s\n" % time.strftime("%Y-%m-%d %H:%M:%S")
                                    ).encode())
@@ -119,6 +125,74 @@ def build_disk(esp, data_size, esp_size):
     return bytes(image)
 
 
+
+def emit_usb_package(out_dir, platform, image_path):
+    """Copy the flashing/verification tooling next to the image.
+
+    The result is a folder someone can copy to a Windows machine (or use in
+    place on Linux) and get from "raw image" to "bootable stick" without
+    reading the whole repository.
+    """
+    pkg = Path(out_dir) / "usb"
+    pkg.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(image_path, pkg / "srtos-usb.img")
+    for name in ("flash-windows.ps1", "flash-linux.sh", "device-check.ps1",
+                 "install-esp.ps1", "verify_stick.py"):
+        shutil.copy2(ROOT / "tools" / "usb" / name, pkg / name)
+    # the verifier reuses the parsers instead of re-implementing FAT32/GPT
+    (pkg / "scripts").mkdir(exist_ok=True)
+    for name in ("fat32.py", "gpt.py"):
+        shutil.copy2(ROOT / "scripts" / name, pkg / "scripts" / name)
+    shutil.copy2(ROOT / "docs" / "UNLOCK-AND-BOOT.md", pkg / "UNLOCK-AND-BOOT.md")
+
+    soc = PLATFORMS[platform]
+    readme = """SurfaceRT_OS USB package
+========================
+
+Board   : %(board)s
+SoC     : %(soc)s (%(cpu)s)
+Platform: %(platform)s
+Image   : srtos-usb.img (%(size)d MiB, SHA-256 in SHA256SUMS.txt)
+
+1. Flash the image (this ERASES the stick):
+
+   Windows (elevated PowerShell):
+       powershell -ExecutionPolicy Bypass -File flash-windows.ps1
+
+   Linux / macOS:
+       sudo ./flash-linux.sh srtos-usb.img
+
+   Both tools only offer removable disks, refuse the system disk, read the
+   image back and finally run verify_stick.py.  A stick that passes can only
+   fail to boot because of the tablet's boot policy.
+
+2. Check the tablet (copy device-check.ps1 to it and run in PowerShell):
+
+       powershell -ExecutionPolicy Bypass -File device-check.ps1
+
+   Expected before unlocking: "Secure Boot ... ON".
+
+3. If Secure Boot is on, follow UNLOCK-AND-BOOT.md.  Short version:
+   Golden Keys (Test Mode) -> Yahallo (turns Secure Boot off permanently).
+
+4. Boot: power off, insert the stick, hold Volume-Down, press Power, release
+   Volume-Down at the Surface logo, pick the USB device.
+
+Optional: keep Windows and boot SRTOS from the internal ESP with
+install-esp.ps1 -Source <stick drive>:  (see UNLOCK-AND-BOOT.md step 6b).
+
+Verify at any time:
+    python3 verify_stick.py <image or device>
+""" % dict(board=soc["board"], soc=soc["soc"], cpu=soc["cpu"],
+           platform=platform, size=os.path.getsize(image_path) // MIB)
+    (pkg / "README.txt").write_text(readme)
+
+    digest = hashlib.sha256((pkg / "srtos-usb.img").read_bytes()).hexdigest()
+    (pkg / "SHA256SUMS.txt").write_text(
+        "%s  srtos-usb.img\n" % digest)
+    return pkg
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="build SurfaceRT_OS images")
     ap.add_argument("--build-dir", default="build")
@@ -126,6 +200,9 @@ def main(argv=None):
     ap.add_argument("--esp-size", type=int, default=40 * MIB)
     ap.add_argument("--data-size", type=int, default=96 * MIB)
     ap.add_argument("--install-size", type=int, default=224 * MIB)
+    ap.add_argument("--usb-package", action="store_true",
+                    help="also emit a self-contained usb/ folder with flashers,"
+                         " the verifier, the device check and the unlock guide")
     ap.add_argument("--platform", default=DEFAULT_PLATFORM,
                     choices=sorted(PLATFORMS),
                     help="board this image is built for")
@@ -208,6 +285,11 @@ def main(argv=None):
         digest = hashlib.sha256(data).hexdigest()
         manifest.append("%-18s %10d bytes  sha256 %s" % (name, len(data), digest))
         print("  %-18s %10d bytes" % (name, len(data)))
+
+    if args.usb_package:
+        pkg = emit_usb_package(args.out, args.platform,
+                               os.path.join(args.out, "srtos-usb.img"))
+        print("mkimage: USB package: %s" % pkg)
 
     parts = gpt.read(usb)
     manifest.append("")

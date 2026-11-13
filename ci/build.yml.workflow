@@ -25,8 +25,8 @@ jobs:
       - name: Build for the Surface RT (Tegra 3)
         run: make
 
-      - name: Build for the Surface 2 / "Surface RT 2" (Tegra 4)
-        run: make PLATFORM=tegra114 OUT=dist/tegra114
+      - name: Build for the Surface 2 / "Surface RT 2" (Tegra 4) + USB package
+        run: make usb PLATFORM=tegra114 OUT=dist/tegra114
 
       - name: Run host test suites
         run: make test

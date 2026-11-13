@@ -13,6 +13,10 @@ disagree: the kernel embeds `SRTOS-PLATFORM:<id>`, `mkimage` refuses a mismatch,
 and the ESP carries the id in `/SRTOS/PLATFORM`.  On the tablet, `uname` prints
 the board it was built for.
 
+> **First time on a locked tablet?**  Read `docs/UNLOCK-AND-BOOT.md` first: the
+> firmware refuses unsigned images until Secure Boot is switched off, and that
+> document has the full procedure plus the tools in `tools/usb/`.
+
 ## 1. Write the USB image
 
 The build produces `dist/srtos-usb.img`, a GPT disk with two partitions:
@@ -21,6 +25,16 @@ The build produces `dist/srtos-usb.img`, a GPT disk with two partitions:
 |---|---|---|
 | 1 | `EFI System Partition` | FAT32: `\EFI\BOOT\BOOTARM.EFI`, `\EFI\Microsoft\Boot\bootmgfw.efi`, `\SRTOS\KERNEL.ELF`, `\SRTOS\BOOT.CFG`, `\SERVICES\HELLO.SVC` |
 | 2 | `SRTOS-INSTALL` | FAT32: `SRTOS-DISK.IMG` (the image for the internal drive) and `README.TXT`; the kernel mounts this partition at `/install` |
+
+Easiest is the packaged flasher, which only offers removable disks, refuses the
+system disk, writes, reads back and verifies:
+
+```sh
+make usb                               # builds dist/usb/ (see the README there)
+sudo tools/usb/flash-linux.sh dist/usb/srtos-usb.img
+```
+
+Or write it by hand:
 
 ```sh
 lsblk                                  # find your stick, e.g. /dev/sdb

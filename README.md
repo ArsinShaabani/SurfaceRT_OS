@@ -89,6 +89,32 @@ py scripts\build.py all --cross C:\msys64\mingw64\bin   :: یا استفاده �
 تست‌ها: `build.cmd test`، پاک‌سازی: `build.cmd clean`، وضعیت تول‌چین:
 `py scripts\build.py doctor`.
 
+### پکیج کامل USB و بوت روی دستگاه قفل‌شده
+
+```sh
+make usb PLATFORM=tegra114 OUT=dist/tegra114      # Surface 2 / «Surface RT 2»
+make usb                                          # Surface RT
+```
+
+خروجی در `dist/.../usb/` یک پوشه‌ی خودکفاست: ایمیج خام + فلاشر ویندوز
+(`flash-windows.ps1`) + فلاشر لینوکس + بررسی‌کننده‌ی استیک + اسکریپت آمادگی دستگاه
++ اسکریپت نصب روی ESP + راهنمای گام‌به‌گام آنلاک.
+
+سرفیس‌های Tegra با Secure Boot قفل عرضه شده‌اند، پس تا وقتی قفل باز نشده فریمور
+ایمیج بدون امضا را اجرا نمی‌کند. مسیر عملی (مستند در `docs/UNLOCK-AND-BOOT.md`
+بر پایه‌ی مستندات جامعه‌ی Windows RT Devices):
+
+1. **Golden Keys / Longhorn** ← روی ویندوز RT 8.1 (بدون آپدیت‌های بعد از اکتبر ۲۰۱۶)
+   حالت Test Mode را فعال می‌کند؛
+2. **Yahallo** ← اکسپلویت TrustZone روی Tegra 3 و **Tegra 4** (Surface RT با UEFI
+   3.31.500 و Surface 2 با UEFI **4.22.500**) که Secure Boot را **برای همیشه**
+   خاموش می‌کند؛
+3. بعد از آن: خاموش کنید، فلش را بزنید، **Volume-Down** را نگه دارید و Power بزنید،
+   در لوگوی Surface رها کنید.
+
+هیچ‌کدام از فایل‌های آنلاک در این مخزن نیست (نه کلید مایکروسافت، نه باینری اکسپلویت)؛
+پکیج ما فقط ابزار آماده‌سازی/فلش/بررسی و مستندسازی مسیر را دارد.
+
 ### نکته‌ی مهم و صادقانه در مورد بوت
 
 Surface RT از کارخانه با **Secure Boot قفل** عرضه شده و فریمورش تصویر بدون
@@ -109,6 +135,7 @@ Surface RT از کارخانه با **Secure Boot قفل** عرضه شده و ف
 |---|---|
 | `boot/` | UEFI loader: GOP framebuffer, ESP reader, relocating ELF loader, `ExitBootServices` |
 | `tools/elf2pe.py` | self contained ELF32/ARM -> PE32 (ARMNT) converter with base relocations |
+| `tools/usb/` | flashers (Windows/Linux), stick verifier, device readiness check, ESP installer with a `windows`/`srtos` boot selector |
 | `kernel/arch/arm` | boot, vectors, MMU (1 MiB sections), GIC-400, PL310, calibrated timers, context switch |
 | `kernel/core` | page allocator, heap, threads, IRQ core, printk, bootinfo/cmdline |
 | `kernel/drivers` | UART, GPIO, I2C, MAX77663 PMIC, SDHCI (eMMC/microSD/SDIO), display controller, framebuffer, EHCI+HID, 88W8797, thermal/fuse |
@@ -143,6 +170,33 @@ The build itself is a single cross platform driver, `scripts/build.py`, so
 
 Outputs (in `dist/`): `BOOTARM.EFI`, `esp.img`, `srtos-disk.img`,
 `srtos-usb.img`, `MANIFEST.txt` (sizes + SHA-256).
+
+## Getting it onto a locked tablet
+
+Both Tegra Surfaces ship with Secure Boot on, so the firmware will not run an
+unsigned loader until it is switched off.  `make usb` builds a self-contained
+folder:
+
+```sh
+make usb PLATFORM=tegra114 OUT=dist/tegra114     # -> dist/tegra114/usb/
+```
+
+```
+dist/tegra114/usb/
+  srtos-usb.img        the bootable image (GPT + ESP + install partition)
+  flash-windows.ps1    elevated, only offers removable disks, verifies the write
+  flash-linux.sh       same rules, dd + read back
+  verify_stick.py      GPT / ESP / PE loader / kernel platform checks
+  device-check.ps1     run on the tablet: model, UEFI version, Secure Boot
+  install-esp.ps1      permanent install with a srtos|windows boot selector
+  UNLOCK-AND-BOOT.md   the step by step: Golden Keys -> Yahallo -> boot
+```
+
+The unlock itself (Golden Keys / Longhorn and Yahallo) is third party work by the
+Windows RT community and is **not** redistributed here; `docs/UNLOCK-AND-BOOT.md`
+links to it, spells out the UEFI version requirements (3.31.500 / 4.22.500) and
+the exact button combination (hold Volume-Down, press Power, release at the
+Surface logo).
 
 ## The wireless display
 
@@ -190,6 +244,7 @@ See `docs/EXTENDING.md` for worked examples.
 | [BUILD](docs/BUILD.md) | toolchain, targets, how the pieces fit |
 | [BOOT-AND-SECUREBOOT](docs/BOOT-AND-SECUREBOOT.md) | the Surface RT boot reality |
 | [INSTALL](docs/INSTALL.md) | USB boot, eMMC install, recovery |
+| [UNLOCK-AND-BOOT](docs/UNLOCK-AND-BOOT.md) | making the USB stick boot: Golden Keys -> Yahallo -> boot, with the tools in `tools/usb/` |
 | [HARDWARE](docs/HARDWARE.md) | Tegra 3 register map and Surface RT peripherals |
 | [DRIVERS](docs/DRIVERS.md) | per-driver state and what to validate first |
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | boot flow, memory, scheduler, services |
