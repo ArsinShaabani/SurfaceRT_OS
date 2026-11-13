@@ -1,76 +1,26 @@
 #!/bin/sh
-# SurfaceRT_OS - toolchain bootstrap
+# SurfaceRT_OS - toolchain bootstrap (Linux / macOS)
 #
-# Downloads a *pinned* prebuilt GNU Arm Embedded toolchain into .toolchain/ so
-# that a bare Linux/macOS box can build the OS without installing any SDK,
-# package manager, or distro cross-toolchain.
+#   ./toolchain/fetch-toolchain.sh            install if missing
+#   ./toolchain/fetch-toolchain.sh --force    re-download
+#   ./toolchain/fetch-toolchain.sh --archive gcc.tar.gz   offline install
 #
-#   ./toolchain/fetch-toolchain.sh            # install if missing
-#   ./toolchain/fetch-toolchain.sh --force    # re-download
+# The actual work (pinned version, SHA-256 verification, extraction) lives in
+# scripts/fetch_toolchain.py so that Windows and POSIX install the same thing.
 #
-# If you already have arm-none-eabi-gcc on PATH, you do not need this script:
+# Already have arm-none-eabi-gcc? You do not need this file:
 #   make CROSS_COMPILE=arm-none-eabi-
-#
-# Supported hosts: Linux x86_64, macOS (arm64/x86_64 - uses the xpack arm64 or
-# x86_64 build), Windows via WSL (use the Linux x86_64 build).
 
 set -eu
+here=$(cd "$(dirname "$0")" && pwd)
 
-VERSION="13.2.1-1.1"
-BASE="xpack-arm-none-eabi-gcc-${VERSION}"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="${ROOT}/.toolchain/${BASE}"
-SHA256_LINUX_X64="1252a8cafe9237de27a765376697230368eec21db44dc3f1edeb8d838dabd530"
-
-os="$(uname -s | tr 'A-Z' 'a-z')"
-arch="$(uname -m)"
-
-case "${os}-${arch}" in
-  linux-x86_64|linux-amd64)  HOST="linux-x64"; SHA="${SHA256_LINUX_X64}" ;;
-  linux-aarch64|linux-arm64) HOST="linux-arm64"; SHA="" ;;
-  darwin-arm64)              HOST="darwin-arm64"; SHA="" ;;
-  darwin-x86_64)             HOST="darwin-x64"; SHA="" ;;
-  *)
-    echo "error: unsupported host ${os}-${arch}." >&2
-    echo "       Install 'gcc-arm-none-eabi' from your distro and run:" >&2
-    echo "         make CROSS_COMPILE=arm-none-eabi-" >&2
-    exit 1
-    ;;
-esac
-
-if [ "${1:-}" != "--force" ] && [ -x "${DEST}/bin/arm-none-eabi-gcc" ]; then
-  echo "toolchain already present: ${DEST}"
-  exit 0
-fi
-
-TARBALL="${BASE}-${HOST}.tar.gz"
-URL="https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v${VERSION}/${TARBALL}"
-
-mkdir -p "${ROOT}/.toolchain"
-tmp="${ROOT}/.toolchain/.download.$$"
-
-echo "downloading $URL"
-if command -v curl >/dev/null 2>&1; then
-  curl -fL --retry 3 --progress-bar -o "${tmp}" "${URL}"
+if command -v python3 >/dev/null 2>&1; then
+    py=python3
+elif command -v python >/dev/null 2>&1; then
+    py=python
 else
-  wget -q --show-progress -O "${tmp}" "${URL}"
-fi
-
-if [ -n "${SHA}" ]; then
-  got="$(sha256sum "${tmp}" | cut -d' ' -f1)"
-  if [ "${got}" != "${SHA}" ]; then
-    echo "error: checksum mismatch" >&2
-    echo "  expected ${SHA}" >&2
-    echo "  got      ${got}" >&2
-    rm -f "${tmp}"
+    echo "error: Python 3 is required (https://python.org)" >&2
     exit 1
-  fi
-  echo "checksum ok"
 fi
 
-echo "extracting to ${ROOT}/.toolchain"
-tar -xzf "${tmp}" -C "${ROOT}/.toolchain"
-rm -f "${tmp}"
-
-"${DEST}/bin/arm-none-eabi-gcc" --version | head -1
-echo "done. now run: make"
+exec "$py" "$here/../scripts/fetch_toolchain.py" "$@"

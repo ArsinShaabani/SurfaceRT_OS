@@ -9,7 +9,7 @@ hardware.
 
 | Area | State | Evidence |
 |------|-------|----------|
-| Build (loader, kernel, modules, images) | **works** | `make` on a clean checkout |
+| Build (loader, kernel, modules, images) | **works on Linux, macOS and Windows** | `make` / `build.cmd` on a clean checkout |
 | UEFI loader -> PE32/ARM conversion | **works** | `tools/elf2pe.py --selftest`, 198 relocations' worth of image verification |
 | Kernel ELF relocation (load anywhere) | **works** | `tests/test_main.c` verifies every `R_ARM_ABS32` site |
 | Host unit tests (heap, printf, strings) | **works** | `make test` |

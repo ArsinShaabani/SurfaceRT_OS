@@ -7,6 +7,7 @@ vector check against the C header sizes.
 """
 
 import os
+import pathlib
 import struct
 import subprocess
 import sys
@@ -127,6 +128,50 @@ def test_protocol_vectors():
     check(dec == px, "RLE round trip")
 
 
+def test_toolchain_fetch_helpers():
+    """The toolchain installer must unpack both published archive types.
+
+    This guards the bug where a fresh install failed because the download is
+    staged as `.<asset>.part` and the extractor sniffed the *file name*.
+    """
+    print("toolchain fetch helpers")
+    import io
+    import tarfile
+    import tempfile
+    import zipfile
+
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import fetch_toolchain
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        inner = "xpack-arm-none-eabi-gcc-13.2.1-1.1/bin/arm-none-eabi-gcc"
+
+        zip_path = tmp / ".asset.zip.part"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr(inner, "stub")
+        fetch_toolchain.extract(zip_path, tmp / "zip", "win32-x64.zip")
+        check((tmp / "zip" / inner).exists(), "zip asset extracted")
+
+        tar_path = tmp / ".asset.tar.gz.part"
+        with tarfile.open(tar_path, "w:gz") as tf:
+            info = tarfile.TarInfo(inner)
+            data = b"stub"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        fetch_toolchain.extract(tar_path, tmp / "tar", "linux-x64.tar.gz")
+        check((tmp / "tar" / inner).exists(), "tarball asset extracted")
+
+        # every platform asset must be a known archive type, and any pinned hash
+        # must be a full SHA-256 (anything else falls back to the published .sha)
+        for key, (suffix, pinned) in fetch_toolchain.ASSETS.items():
+            label = "%s/%s" % key
+            check(suffix.endswith((".zip", ".tar.gz")), "asset suffix %s" % label)
+            check(pinned is None or (len(pinned) == 64 and
+                                     all(c in "0123456789abcdef" for c in pinned)),
+                  "pinned hash %s" % label)
+
+
 def test_images():
     print("image assembly")
     build = os.path.join(ROOT, "build")
@@ -172,6 +217,7 @@ def main():
     test_fat32()
     test_gpt()
     test_protocol_vectors()
+    test_toolchain_fetch_helpers()
     test_images()
     print("\n%d checks, %d failure(s)" % (CHECKS, len(FAILURES)))
     return 1 if FAILURES else 0

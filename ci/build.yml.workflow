@@ -77,7 +77,7 @@ jobs:
           key: xpack-arm-none-eabi-gcc-13.2.1-1.1-win32-x64
 
       - name: Fetch toolchain (no-op when cached)
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-toolchain.ps1
+        run: py scripts/fetch_toolchain.py
         shell: cmd
 
       - name: Build

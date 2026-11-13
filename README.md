@@ -49,11 +49,21 @@ python3 host/srdisplay/sender.py --host <IP تبلت> --stats
 روی **ویندوز** (بدون WSL، فقط پایتون ۳ لازم است):
 
 ```bat
-build.cmd                           :: بار اول خودش تول‌چین را دانلود می‌کند
+build.cmd                           :: بار اول خودش تول‌چین را دانلود و سپس بیلد می‌کند
 :: خروجی: dist\srtos-usb.img  ->  با Rufus در حالت DD روی فلش بنویسید
 ```
 
-یا گام‌به‌گام: `fetch-toolchain.cmd` و بعد `py scripts\build.py all`.
+اگر پیام `no arm-none-eabi toolchain found` دیدید، یعنی هنوز کامپایلر نصب نیست؛
+یکی از این‌ها کافی است:
+
+```bat
+py scripts\build.py all --fetch     :: دانلود + تأیید SHA-256 + بیلد در یک قدم
+py scripts\fetch_toolchain.py       :: فقط نصب تول‌چین (~۲۹۰MB، بدون نیاز به ادمین)
+py scripts\build.py all --cross C:\msys64\mingw64\bin   :: یا استفاده از نصب موجود
+```
+
+بدون اینترنت؟ فایل `xpack-arm-none-eabi-gcc-13.2.1-1.1-win32-x64.zip` را جای دیگر
+بگیرید و بدهید: `py scripts\fetch_toolchain.py --archive path\file.zip`
 تست‌ها: `build.cmd test`، پاک‌سازی: `build.cmd clean`، وضعیت تول‌چین:
 `py scripts\build.py doctor`.
 

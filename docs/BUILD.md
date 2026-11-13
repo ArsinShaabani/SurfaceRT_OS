@@ -58,6 +58,38 @@ checkout is touched.  Already have `arm-none-eabi-gcc`?
 py scripts\build.py all --cross C:\msys64\mingw64\bin\arm-none-eabi-
 ```
 
+### If the build says "no arm-none-eabi toolchain found"
+
+That is the one expected error on a fresh machine: the compiler is not there
+yet.  Any of these fixes it:
+
+```bat
+build.cmd                        :: already does this for you on first run
+py scripts\build.py all --fetch  :: one step: download, verify, build
+py scripts\fetch_toolchain.py    :: just install the toolchain
+```
+
+The download is ~290 MB, SHA-256 verified against a pinned hash before anything
+is unpacked, and lands in `.toolchain\` inside the checkout.  No administrator
+rights, no PATH changes, no registry writes.
+
+Behind a proxy or offline?
+
+```bat
+:: download the win32-x64 zip on the machine that has internet access
+py scripts\fetch_toolchain.py --archive C:\Users\me\Downloads\xpack-arm-none-eabi-gcc-13.2.1-1.1-win32-x64.zip
+```
+
+Or skip the download entirely and point the build at a toolchain you already
+have - a prefix, a `bin` directory, or the `gcc.exe` itself:
+
+```bat
+py scripts\build.py all --cross C:\msys64\mingw64\bin
+py scripts\build.py all --cross C:\msys64\mingw64\bin\arm-none-eabi-gcc.exe
+set CROSS_COMPILE=C:\tools\arm\bin\arm-none-eabi-
+py scripts\build.py all
+```
+
 `build.cmd`, `build.ps1` and `make` all run the same `scripts/build.py`, so the
 outputs are identical on every host OS.  `sim` and `tests` additionally need a
 host C compiler (`gcc`/`clang`, for example from MSYS2); they are the only
@@ -88,6 +120,8 @@ dist/MANIFEST.txt           sizes and SHA-256 of every artefact
 | `make test` | `build.cmd test` | 57 host checks (C) + 48 checks (Python) |
 | `make sim` | `py scripts\build.py sim` | display-sink simulator |
 | `make doctor` | `py scripts\build.py doctor` | show the detected toolchain |
+| - | `py scripts\build.py all --fetch` | build, installing the toolchain first |
+| - | `fetch-toolchain.cmd` | only install/repair the toolchain |
 | `make clean` | `build.cmd clean` | remove `build/` and `dist/` |
 
 ## How the pieces fit together

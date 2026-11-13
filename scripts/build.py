@@ -112,11 +112,42 @@ def find_tool(prefix, name):
     return exe
 
 
+def normalize_cross(spec):
+    r"""Accept a prefix, a bin directory or the gcc binary itself.
+
+    People copy whatever their shell or Explorer shows them, so all of these
+    end up as a usable prefix:
+
+        --cross arm-none-eabi-
+        --cross C:\msys64\mingw64\bin
+        --cross C:\msys64\mingw64\bin\
+        --cross C:\msys64\mingw64\bin\arm-none-eabi-gcc.exe
+        --cross /usr/bin/arm-none-eabi-
+    """
+    if not spec:
+        return spec
+    unified = spec.replace("\\", "/").rstrip("/")
+    base = unified.rsplit("/", 1)[-1].lower()
+    if base in ("arm-none-eabi-gcc", "arm-none-eabi-gcc.exe"):
+        parent = unified.rsplit("/", 1)[0] if "/" in unified else ""
+        out = (parent + "/" if parent else "") + "arm-none-eabi-"
+    elif base == "arm-none-eabi-":
+        out = unified            # already a prefix; never append a separator
+    elif "/" in unified:
+        out = unified + "/arm-none-eabi-"
+    else:
+        out = spec
+    return out.replace("/", os.sep)
+
+
+TOOLCHAIN_MISSING_EXIT = 3
+
+
 def resolve_cross(explicit):
-    """Return (gcc, objcopy, size) for the arm-none-eabi toolchain."""
+    """Return the arm-none-eabi- prefix, or None."""
     candidates = []
     if explicit:
-        candidates.append(explicit)
+        candidates.append(normalize_cross(explicit))
     if os.environ.get("CROSS_COMPILE"):
         candidates.append(os.environ["CROSS_COMPILE"])
     for pattern in ("xpack-arm-none-eabi-gcc-*", "arm-none-eabi-gcc-*",
@@ -426,7 +457,8 @@ def main(argv=None):
         epilog="examples:  py scripts\\build.py all   |   python3 scripts/build.py test")
     ap.add_argument("command", nargs="?", default="all",
                     choices=["all", "boot", "kernel", "services", "image",
-                             "sim", "tests", "test", "clean", "doctor"])
+                             "sim", "tests", "test", "clean", "doctor",
+                             "fetch-toolchain"])
     ap.add_argument("--build-dir", default="build")
     ap.add_argument("--out", default="dist")
     ap.add_argument("--cross", default=None,
@@ -437,6 +469,8 @@ def main(argv=None):
     ap.add_argument("--esp-size", type=int, default=0)
     ap.add_argument("--data-size", type=int, default=0)
     ap.add_argument("--install-size", type=int, default=0)
+    ap.add_argument("--fetch", action="store_true",
+                    help="download the pinned toolchain first if it is missing")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
 
@@ -450,12 +484,26 @@ def main(argv=None):
     jobs = args.jobs or min(4, (os.cpu_count() or 2))
     started = time.time()
 
+    if args.command == "fetch-toolchain":
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from fetch_toolchain import install as install_toolchain
+        return install_toolchain()
     if args.command == "doctor":
         return doctor(resolve_cross(args.cross), args.build_dir)
     if args.command == "clean":
         return clean(build, out)
 
     cross = resolve_cross(args.cross)
+    if not cross and args.fetch:
+        print("toolchain missing - downloading the pinned build")
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from fetch_toolchain import install as install_toolchain
+        try:
+            install_toolchain()
+        except SystemExit as exc:
+            print("toolchain download failed: %s" % exc, file=sys.stderr)
+            return 1
+        cross = resolve_cross(args.cross)
     try:
         if args.command == "sim":
             return build_sim(build, args.verbose, args.host_cc)
@@ -463,14 +511,22 @@ def main(argv=None):
             return build_tests(build, args.verbose, args.host_cc, True)
 
         if not cross:
+            py = "py" if IS_WINDOWS else "python3"
+            sep = "\\" if IS_WINDOWS else "/"
             print("error: no arm-none-eabi toolchain found.\n"
-                  "       Linux/macOS: ./toolchain/fetch-toolchain.sh\n"
-                  "       Windows    : powershell -ExecutionPolicy Bypass "
-                  "-File scripts\\fetch-toolchain.ps1\n"
-                  "       Already installed? point at it: "
-                  "--cross C:\\path\\bin\\arm-none-eabi-",
+                  "\n"
+                  "  fix it in one step (any OS, ~290 MB, verified download):\n"
+                  "      " + py + " scripts" + sep + "build.py all --fetch\n"
+                  "\n"
+                  "  or install it explicitly:\n"
+                  "      windows     : fetch-toolchain.cmd\n"
+                  "      linux/macos : ./toolchain/fetch-toolchain.sh\n"
+                  "\n"
+                  "  already have arm-none-eabi-gcc? point the build at it:\n"
+                  "      --cross C:\\msys64\\mingw64\\bin"
+                  "   (or ...\\bin\\arm-none-eabi-gcc.exe)",
                   file=sys.stderr)
-            return 1
+            return TOOLCHAIN_MISSING_EXIT
 
         if args.command in ("all", "boot"):
             build_boot(cross, build, jobs, args.verbose)
