@@ -1,5 +1,10 @@
 # SurfaceRT_OS
 
+![platforms](https://img.shields.io/badge/platforms-Surface%20RT%20(Tegra%203)%20%7C%20Surface%202%20(Tegra%204)-blue)
+![license](https://img.shields.io/badge/license-MIT-green)
+![build](https://img.shields.io/badge/build-make%20%7C%20build.cmd%20%7C%20py%20scripts%2Fbuild.py-lightgrey)
+![tests](https://img.shields.io/badge/tests-57%20C%20%2B%2097%20Python-brightgreen)
+
 An operating system for the ARM UEFI Surface tablets, whose headline feature is
 turning the tablet into a **wireless second screen**.  No SDK, no CMake, no
 vendor toolchain: `make` produces a bootable USB image, and the tablet can
