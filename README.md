@@ -21,6 +21,11 @@ what differs in the kernel (compiler target, timer, L2, EL2 hand-off).  The x86
 Surface Pro family is **not** supported - different firmware, different boot
 chain.
 
+**Prebuilt images:** the [v1.0.0 release](https://github.com/ArsinShaabani/SurfaceRT_OS/releases/tag/v1.0.0)
+ships ready-to-write `srtos-usb-tegra30.img` (Surface RT) and
+`srtos-usb-tegra114.img` (Surface 2 / "Surface RT 2") with checksums, plus the
+USB tooling.  Building locally takes about four seconds and is described below.
+
 ```
   make            ->  dist/srtos-usb.img      (bootable, GPT + FAT32 ESP)
   dd ...          ->  USB stick
