@@ -1,9 +1,20 @@
 # SurfaceRT_OS
 
-An operating system for the **Microsoft Surface RT** (NVIDIA Tegra 3 / T30,
-ARMv7-A) whose headline feature is turning the tablet into a **wireless second
-screen**.  No SDK, no CMake, no vendor toolchain: `make` produces a bootable USB
-image, and the tablet can install the OS onto its own eMMC from that stick.
+An operating system for the ARM UEFI Surface tablets, whose headline feature is
+turning the tablet into a **wireless second screen**.  No SDK, no CMake, no
+vendor toolchain: `make` produces a bootable USB image, and the tablet can
+install the OS onto its own eMMC from that stick.
+
+| Device | SoC | CPU | Platform id |
+|---|---|---|---|
+| **Surface RT** (2012, first generation) | NVIDIA Tegra 3 (T30) | 4x Cortex-A9 | `tegra30` (default) |
+| **Surface 2**, the tablet usually called **"Surface RT 2"** (2013) | NVIDIA Tegra 4 (T114) | 4x Cortex-A15 | `tegra114` |
+
+Both are built from the same tree and both are first-class targets;
+`docs/SURFACE-MODELS.md` explains how to tell the two tablets apart and exactly
+what differs in the kernel (compiler target, timer, L2, EL2 hand-off).  The x86
+Surface Pro family is **not** supported - different firmware, different boot
+chain.
 
 ```
   make            ->  dist/srtos-usb.img      (bootable, GPT + FAT32 ESP)
@@ -17,7 +28,15 @@ image, and the tablet can install the OS onto its own eMMC from that stick.
 
 ## خلاصه به فارسی
 
-این پروژه یک سیستم‌عامل کامل برای Surface RT (پردازنده Tegra 3) است که:
+این پروژه یک سیستم‌عامل کامل برای تبلت‌های ARM سرفیس است و **دو مدل** را پشتیبانی
+می‌کند:
+
+* **Surface RT** (نسل اول، ۲۰۱۲) → Tegra 3 (T30)، چهار هسته Cortex-A9 → پلتفرم `tegra30` (پیش‌فرض)
+* **Surface 2** که همان «Surface RT 2» است (۲۰۱۳) → Tegra 4 (T114)، چهار هسته Cortex-A15 → پلتفرم `tegra114`
+
+(سرفیس پرو با پردازنده اینتل پشتیبانی نمی‌شود؛ فریمورش و زنجیره بوتش کاملاً متفاوت است.)
+
+این سیستم‌عامل:
 
 * با یک دستور `make` و **بدون هیچ SDK خاصی** ساخته می‌شود (اگر کراس‌کامپایلر
   نداشته باشید، `./toolchain/fetch-toolchain.sh` یک ابزارشارژ پین‌شده و
@@ -34,8 +53,9 @@ image, and the tablet can install the OS onto its own eMMC from that stick.
 روی **لینوکس / مک**:
 
 ```sh
-./toolchain/fetch-toolchain.sh      # فقط بار اول
-make                                # کرنل + لودر + ایمیج‌ها
+./toolchain/fetch-toolchain.sh           # فقط بار اول
+make                                     # برای Surface RT (Tegra 3)
+make PLATFORM=tegra114 OUT=dist/tegra114 # برای Surface 2 / «Surface RT 2» (Tegra 4)
 sudo dd if=dist/srtos-usb.img of=/dev/sdX bs=4M conv=fsync status=progress
 
 # روی تبلت، بعد از بوت از فلش و اتصال کابل سریال (115200):
@@ -49,7 +69,9 @@ python3 host/srdisplay/sender.py --host <IP تبلت> --stats
 روی **ویندوز** (بدون WSL، فقط پایتون ۳ لازم است):
 
 ```bat
-build.cmd                           :: بار اول خودش تول‌چین را دانلود و سپس بیلد می‌کند
+build.cmd                                        :: Surface RT (Tegra 3)
+py scripts\build.py all --platform tegra114 --out dist\tegra114
+                                                 :: Surface 2 / «Surface RT 2» (Tegra 4)
 :: خروجی: dist\srtos-usb.img  ->  با Rufus در حالت DD روی فلش بنویسید
 ```
 
@@ -163,6 +185,7 @@ See `docs/EXTENDING.md` for worked examples.
 
 | Document | Contents |
 |---|---|
+| [SURFACE-MODELS](docs/SURFACE-MODELS.md) | which Surface is which, and how the Tegra 3 / Tegra 4 ports differ |
 | [STATUS](docs/STATUS.md) | what works, what is verified, what is still open |
 | [BUILD](docs/BUILD.md) | toolchain, targets, how the pieces fit |
 | [BOOT-AND-SECUREBOOT](docs/BOOT-AND-SECUREBOOT.md) | the Surface RT boot reality |

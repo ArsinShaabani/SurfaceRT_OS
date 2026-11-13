@@ -62,3 +62,23 @@ counter and only falls back to `cpu/2` if that counter is dead.
 
 SPIs are routed to CPU 0 only; the kernel runs on one core (`SMP` is a documented
 follow-up, see `docs/EXTENDING.md`).
+
+## Two boards, one register map
+
+The kernel targets both Tegra generations that shipped in a Surface RT-class
+tablet.  The family-wide blocks below are shared; only the CPU, the timer and
+the L2 differ (see `docs/SURFACE-MODELS.md` for the full comparison):
+
+| | Surface RT (2012) | Surface 2 (2013) |
+|---|---|---|
+| SoC | Tegra 3 (T30) | Tegra 4 (T114) |
+| Cores | 4x Cortex-A9 @ 1.3 GHz | 4x Cortex-A15 @ 1.8 GHz |
+| Panel | 1366x768 | 1920x1080 |
+| Counter | A9 global timer `0x50040200` | `CNTPCT` (generic timer) |
+| Tick IRQ | PPI 29 (A9 private timer) | PPI 30 (EL1 physical timer) |
+| L2 | PL310 at `0x50043000` | integrated in the cluster |
+
+The shared map (`kernel/platform/tegra/tegra_common.h`) is unchanged between the
+two: UART at `0x70006000`, I2C at `0x7000C000`, GPIO at `0x6000D000`, SDHCI at
+`0x78000000`, DC at `0x54200000`, EHCI at `0x7D000000`, PMC at `0x7000E400`,
+TMR at `0x60005000`.

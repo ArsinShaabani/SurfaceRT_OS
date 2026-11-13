@@ -8,7 +8,7 @@
 #include <srtos/irq.h>
 #include <srtos/kernel.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define GICD_CTLR 0x000
 #define GICD_TYPER 0x004
@@ -28,8 +28,8 @@
 #define GICC_RPR 0x014
 #define GICC_HPPIR 0x018
 
-#define GICD ((volatile u32 *)T30_GIC_DIST_BASE)
-#define GICC ((volatile u32 *)T30_GIC_CPU_BASE)
+#define GICD ((volatile u32 *)TEGRA_GIC_DIST_BASE)
+#define GICC ((volatile u32 *)TEGRA_GIC_CPU_BASE)
 
 #define SPURIOUS_IRQ 1023
 
@@ -102,7 +102,7 @@ void gic_set_priority(int irq, u8 prio)
     if (irq < 0 || irq >= IRQ_NR) {
         return;
     }
-    p = (volatile u8 *)(T30_GIC_DIST_BASE + GICD_IPRIORITYR + irq);
+    p = (volatile u8 *)(TEGRA_GIC_DIST_BASE + GICD_IPRIORITYR + irq);
     *p = prio;
 }
 

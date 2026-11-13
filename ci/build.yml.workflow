@@ -22,8 +22,11 @@ jobs:
           arm-none-eabi-gcc --version | head -1
           python3 --version
 
-      - name: Build loader, kernel, modules and images
+      - name: Build for the Surface RT (Tegra 3)
         run: make
+
+      - name: Build for the Surface 2 / "Surface RT 2" (Tegra 4)
+        run: make PLATFORM=tegra114 OUT=dist/tegra114
 
       - name: Run host test suites
         run: make test
@@ -80,8 +83,12 @@ jobs:
         run: py scripts/fetch_toolchain.py
         shell: cmd
 
-      - name: Build
+      - name: Build (Surface RT, Tegra 3)
         run: py scripts/build.py all
+        shell: cmd
+
+      - name: Build (Surface 2 / RT 2, Tegra 4)
+        run: py scripts/build.py all --platform tegra114 --out dist\tegra114
         shell: cmd
 
       - name: Show output

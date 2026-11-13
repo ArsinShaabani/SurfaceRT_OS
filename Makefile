@@ -1,6 +1,7 @@
 # SurfaceRT_OS - top level build
 #
-#   make            build loader + kernel + modules + images
+#   make                          build for the Surface RT (Tegra 3, default)
+#   make PLATFORM=tegra114        build for the Surface 2 / "Surface RT 2" (Tegra 4)
 #   make image      only rebuild the images in dist/
 #   make test       host unit tests (no ARM hardware needed)
 #   make sim        host build of the portable core + display sink
@@ -14,10 +15,11 @@
 #   Linux/macOS : ./toolchain/fetch-toolchain.sh  once, then make
 #   Windows     : build.cmd      (or .\build.ps1)  once, then build.cmd
 
-PYTHON ?= python3
-BUILD  ?= build
-OUT    ?= dist
-CMD    := $(PYTHON) scripts/build.py --build-dir $(BUILD) --out $(OUT)
+PYTHON   ?= python3
+BUILD    ?= build
+OUT      ?= dist
+PLATFORM ?= tegra30
+CMD      := $(PYTHON) scripts/build.py --build-dir $(BUILD) --out $(OUT) --platform $(PLATFORM)
 
 .PHONY: all boot kernel services image images test sim clean doctor help
 

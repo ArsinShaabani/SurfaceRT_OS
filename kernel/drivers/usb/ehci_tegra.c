@@ -17,9 +17,9 @@
 #include <srtos/arch.h>
 #include <srtos/string.h>
 #include <srtos/irq.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
-#define USB1_BASE T30_USB_BASE(0) /* xHCI-less EHCI instance on T30     */
+#define USB1_BASE TEGRA_USB_BASE(0) /* xHCI-less EHCI instance on T30     */
 #define USB_TIMEOUT_MS 200
 
 struct __packed qtd {

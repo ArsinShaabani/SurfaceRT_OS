@@ -23,6 +23,7 @@
 #include <srtos/platform.h>
 #include <srtos/driver.h>
 #include <srtos/srdp.h>
+#include <srtos/soc.h>
 
 #define LINE_MAX 128
 #define ARGS_MAX 8
@@ -57,8 +58,9 @@ static int cmd_uname(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    printk("%s %s (%s) ARMv7-A Cortex-A9, 1 core online\n", SRTOS_NAME,
-           SRTOS_VERSION, SRTOS_CODENAME);
+    printk("%s %s (%s)\n", SRTOS_NAME, SRTOS_VERSION, SRTOS_CODENAME);
+    printk("board: %s, %s, %d x %s (1 core online)\n", SRTOS_BOARD_NAME,
+           SRTOS_SOC_NAME, PLATFORM_CPU_CORES, PLATFORM_CPU_NAME);
     printk("build: %s %s\n", __DATE__, __TIME__);
     return 0;
 }

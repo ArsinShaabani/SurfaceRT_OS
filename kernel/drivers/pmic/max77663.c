@@ -15,9 +15,10 @@
 #include <srtos/arch.h>
 #include <srtos/clock.h>
 #include <srtos/string.h>
+#include <srtos/soc.h>
 
-#define PMIC_I2C_BUS 4
-#define PMIC_ADDR 0x3C   /* 7 bit address of the MAX77663 on the Surface RT */
+#define PMIC_I2C_BUS PLATFORM_PMIC_I2C_BUS
+#define PMIC_ADDR PLATFORM_PMIC_I2C_ADDR
 
 /* Global / miscellaneous block */
 #define PMIC_REG_IRQ_MASK 0x00

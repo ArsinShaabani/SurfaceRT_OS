@@ -1,5 +1,18 @@
 # Booting from USB and installing to the internal eMMC
 
+## 0. Which image should I build?
+
+| Your tablet | Build command | Output |
+|---|---|---|
+| **Surface RT** (2012, Tegra 3, 1366x768) | `make` | `dist/srtos-usb.img` |
+| **Surface 2**, a.k.a. **"Surface RT 2"** (2013, Tegra 4, 1920x1080) | `make PLATFORM=tegra114 OUT=dist/tegra114` | `dist/tegra114/srtos-usb.img` |
+| Surface Pro (any) | - | not supported (x86, different firmware) |
+
+The kernel and the image metadata must agree, and they cannot silently
+disagree: the kernel embeds `SRTOS-PLATFORM:<id>`, `mkimage` refuses a mismatch,
+and the ESP carries the id in `/SRTOS/PLATFORM`.  On the tablet, `uname` prints
+the board it was built for.
+
 ## 1. Write the USB image
 
 The build produces `dist/srtos-usb.img`, a GPT disk with two partitions:

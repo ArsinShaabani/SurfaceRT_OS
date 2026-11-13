@@ -111,11 +111,36 @@ dist/srtos-usb.img          264 MiB GPT USB image (ESP + INSTALL partition)
 dist/MANIFEST.txt           sizes and SHA-256 of every artefact
 ```
 
+## Target board
+
+The build produces a kernel for **one** board at a time.  The two supported
+boards are the Surface RT (Tegra 3) and the Surface 2, also called "Surface RT
+2" (Tegra 4) - see `docs/SURFACE-MODELS.md` for how to tell them apart.
+
+```sh
+make                                   # Surface RT      (tegra30, the default)
+make PLATFORM=tegra114 OUT=dist/tegra114   # Surface 2 (tegra114)
+
+# same thing, no make:
+py scripts\build.py all --platform tegra114 --out dist\tegra114
+```
+
+`--platform` changes the compiler target (`-mcpu=cortex-a9` vs
+`-mcpu=cortex-a15`), selects the SoC header, and makes the kernel embed a
+`SRTOS-PLATFORM:<id>` marker.  The image builder refuses to pair a kernel with
+the wrong board metadata, so a mixed-up stick cannot be produced by accident.
+
+```sh
+py scripts\build.py doctor                    # lists both platforms
+py scripts\build.py kernel --platform tegra114  # kernel only, for a quick check
+```
+
 ## Useful targets
 
 | POSIX | Windows | What it does |
 |---|---|---|
-| `make` | `build.cmd` | everything |
+| `make` | `build.cmd` | everything (default board: Surface RT) |
+| `make PLATFORM=tegra114` | `build.cmd` + `--platform tegra114` | everything for the Surface 2 (Tegra 4) |
 | `make image` | `py scripts\build.py image` | rebuild only the images |
 | `make test` | `build.cmd test` | 57 host checks (C) + 48 checks (Python) |
 | `make sim` | `py scripts\build.py sim` | display-sink simulator |

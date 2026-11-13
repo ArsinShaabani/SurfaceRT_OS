@@ -4,14 +4,14 @@
 #include <srtos/kernel.h>
 #include <srtos/arch.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 static u32 g_chip_id;
 static u32 g_chip_rev;
 
 int fuse_init(void)
 {
-    u32 hidrev = readl(T30_APB_MISC_BASE + APB_MISC_GP_HIDREV);
+    u32 hidrev = readl(TEGRA_APB_MISC_BASE + APB_MISC_GP_HIDREV);
     g_chip_id = (hidrev >> 8) & 0xFF;    /* 0x30 = Tegra 3 (T30) */
     g_chip_rev = hidrev & 0xF;
     pr_info("fuse: SoC id 0x%02x (Tegra 3), revision %u.%u\n", g_chip_id,

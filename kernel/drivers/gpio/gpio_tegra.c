@@ -2,7 +2,7 @@
 #include <srtos/gpio.h>
 #include <srtos/kernel.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define GPIO_PORTS 8
 #define PINS_PER_PORT 8
@@ -11,7 +11,7 @@ static u8 g_owner[GPIO_PORTS * PINS_PER_PORT];
 
 static inline uptr port_base(int pin)
 {
-    return T30_GPIO_BASE + (uptr)(pin / PINS_PER_PORT) * 0x100;
+    return TEGRA_GPIO_BASE + (uptr)(pin / PINS_PER_PORT) * 0x100;
 }
 
 static inline u32 pin_bit(int pin)
@@ -22,7 +22,7 @@ static inline u32 pin_bit(int pin)
 int gpio_init(void)
 {
     memset(g_owner, 0, sizeof(g_owner));
-    pr_info("gpio: %d ports at 0x%08x\n", GPIO_PORTS, T30_GPIO_BASE);
+    pr_info("gpio: %d ports at 0x%08x\n", GPIO_PORTS, TEGRA_GPIO_BASE);
     return 0;
 }
 
@@ -97,7 +97,7 @@ void gpio_dump(void)
 {
     int p;
     for (p = 0; p < GPIO_PORTS; p++) {
-        uptr base = T30_GPIO_BASE + (uptr)p * 0x100;
+        uptr base = TEGRA_GPIO_BASE + (uptr)p * 0x100;
         printk("gpio%d: oe=0x%02x out=0x%02x in=0x%02x\n", p,
                readl(base + GPIO_OE) & 0xFF, readl(base + GPIO_OUT) & 0xFF,
                readl(base + GPIO_IN) & 0xFF);

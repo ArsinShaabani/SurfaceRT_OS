@@ -2,7 +2,7 @@
 #include <srtos/arch.h>
 #include <srtos/kernel.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define L1_LINE 32u
 
@@ -125,18 +125,24 @@ void cp15_barrier_sync(void)
 
 void l2_cache_init(void)
 {
-    volatile u32 *l2 = (volatile u32 *)T30_L2C_BASE;
+#if defined(SRTOS_SOC_TEGRA30)
+    volatile u32 *l2 = (volatile u32 *)TEGRA_L2C_BASE;
     u32 aux;
 
     l2[L2C_INV_WAY / 4] = 0xFFFFFFFFu;
     while (l2[L2C_INV_WAY / 4] != 0) {
     }
     aux = l2[L2C_AUX_CTRL / 4];
-    aux &= ~0x00FF0000u;      /* latency: keep the firmware value        */
-    aux |= (1u << 16) |      /* 16-way associativity                  */
-           (0u << 17);
+    aux &= ~0x00FF0000u; /* latency: keep the firmware value */
+    aux |= (1u << 16);   /* 16-way associativity          */
     l2[L2C_AUX_CTRL / 4] = aux;
     l2[L2C_CTRL / 4] = L2C_CTRL_ENABLE;
     __asm__ __volatile__("dsb");
     pr_info("l2c: PL310 enabled (aux=0x%08x)\n", aux);
+#else
+    /* Cortex-A15: the L2 cache lives inside the cluster and follows the
+     * normal cache enable, there is nothing to program here. */
+    __asm__ __volatile__("dsb");
+    pr_info("l2c: integrated in the %s cluster\n", PLATFORM_CPU_NAME);
+#endif
 }

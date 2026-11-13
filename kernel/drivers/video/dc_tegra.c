@@ -21,9 +21,9 @@
 #include <srtos/string.h>
 #include <srtos/irq.h>
 #include <srtos/clock.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
-#define DC0 T30_DC_BASE(0)
+#define DC0 TEGRA_DC_BASE(0)
 #define DC_WIN_A 0
 #define DC_WINBUF_START_ADDR 0x800
 #define DC_WINBUF_ADDR_H_OFFSET 0x806

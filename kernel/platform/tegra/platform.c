@@ -1,10 +1,14 @@
 /*
- * SurfaceRT_OS - Microsoft Surface RT (Tegra 3 T30) platform bring-up
+ * SurfaceRT_OS - Tegra family platform bring-up
  *
- * This is the only file that knows about *this* board.  The drivers are wired
- * through the generic driver model so that `drivers` in the shell shows what
- * actually probed, and so that porting to another Tegra 3 device is a sibling
- * file with the same entry points (selected with PLATFORM= in the Makefile).
+ * Shared by every Tegra board we support: Surface RT (Tegra 3 / T30) and
+ * Surface 2, a.k.a. "Surface RT 2" (Tegra 4 / T114).  Everything that differs
+ * between them - CPU core, timer block, L2, board wiring, IRQ numbers - lives
+ * in kernel/platform/<soc>/<soc>.h and is reached through <srtos/soc.h>.
+ *
+ * Drivers are wired through the generic driver model so that `drivers` in the
+ * shell shows what actually probed (and what did not, which is the first thing
+ * you want to know on a new board).
  */
 #include <srtos/kernel.h>
 #include <srtos/platform.h>
@@ -18,7 +22,7 @@
 #include <srtos/pmic.h>
 #include <srtos/fb.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 /* implemented by the individual drivers */
 void fb_init(const struct srt_framebuffer *fb);
@@ -31,6 +35,10 @@ int wlan_init(void);
 int thermal_init(void);
 int fuse_init(void);
 int fat32_mount_root(void);
+
+/* A machine readable board id.  scripts/mkimage.py greps the kernel image for
+ * it, so an ESP can never be built with a kernel for a different tablet. */
+const char srtos_platform_id[] = "SRTOS-PLATFORM:" SRTOS_PLATFORM_TOKEN;
 
 static const struct srt_bootinfo *g_bi;
 static int g_have_display;
@@ -128,10 +136,13 @@ void platform_mount_root(void)
 
 void platform_dump(void)
 {
-    printk("platform: Surface RT / Tegra 3 T30\n");
+    printk("platform: %s, %s [%s]\n", SRTOS_BOARD_NAME, SRTOS_SOC_NAME,
+           srtos_platform_id);
+    printk("  cpu      : %d x %s\n", PLATFORM_CPU_CORES, PLATFORM_CPU_NAME);
     printk("  ram      : 0x%08x (%u MiB)\n", g_bi ? (u32)g_bi->ram_base : 0,
            g_bi ? (u32)(g_bi->ram_size >> 20) : 0);
-    printk("  display  : %s\n", g_have_display ? "yes" : "no");
+    printk("  display  : %s (%s panel)\n", g_have_display ? "yes" : "no",
+           PLATFORM_PANEL_HINT);
     printk("  blocks   : %d\n", block_count());
     printk("  netifs   : %d\n", net_if_count());
 }

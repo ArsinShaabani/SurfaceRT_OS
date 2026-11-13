@@ -5,11 +5,18 @@ boots and is tested" and "written against the TRM but not yet run on a real
 tablet".  Nothing here is claimed to work on hardware until it has been run on
 hardware.
 
+Two boards are supported from the same tree - **Surface RT** (2012, Tegra 3 /
+T30, Cortex-A9) and **Surface 2**, the tablet usually called "Surface RT 2"
+(2013, Tegra 4 / T114, Cortex-A15).  `docs/SURFACE-MODELS.md` explains how to
+tell them apart and exactly what differs in the kernel.
+
 ## Summary
 
 | Area | State | Evidence |
 |------|-------|----------|
 | Build (loader, kernel, modules, images) | **works on Linux, macOS and Windows** | `make` / `build.cmd` on a clean checkout |
+| Two targets: Surface RT (Tegra 3) and Surface 2 / "RT 2" (Tegra 4) | **both build**, per-platform kernels with mismatch protection | `make PLATFORM=tegra114`, `tests/pytests` platform test |
+| Tegra 4 specifics (Cortex-A15, generic timer, EL2 drop, no PL310) | **implemented**, awaiting hardware | `docs/SURFACE-MODELS.md` |
 | UEFI loader -> PE32/ARM conversion | **works** | `tools/elf2pe.py --selftest`, 198 relocations' worth of image verification |
 | Kernel ELF relocation (load anywhere) | **works** | `tests/test_main.c` verifies every `R_ARM_ABS32` site |
 | Host unit tests (heap, printf, strings) | **works** | `make test` |

@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fat32
 import gpt
+from platforms import PLATFORMS, DEFAULT_PLATFORM
 
 MIB = 1024 * 1024
 
@@ -39,6 +40,14 @@ kernel=KERNEL.ELF
 kernel_base=0x82000000
 cmdline=console=fb,uart loglevel=info
 """
+
+def boot_cfg(platform):
+    soc = PLATFORMS[platform]
+    return (BOOT_CFG +
+            "#\n# built for: %s\n# %s, %s\n# timer: %s, panel %s\n"
+            "platform=%s\n" % (soc["board"], soc["soc"], soc["cpu"],
+                                 soc["timer"], soc["panel"], platform))
+
 
 README_INSTALL = """SurfaceRT_OS installation media
 ================================
@@ -70,7 +79,7 @@ def mount_into(image, start_lba, partition_image):
     image[off:off + len(partition_image)] = partition_image
 
 
-def build_esp(build_dir, size, loader, kernel, modules):
+def build_esp(build_dir, size, loader, kernel, modules, platform=DEFAULT_PLATFORM):
     fs = fat32.Fat32Builder(size, cluster_bytes=512, label="SRTOSESP")
     fs.mkdir("/EFI/BOOT")
     fs.add_file("/EFI/BOOT/BOOTARM.EFI", loader)
@@ -80,7 +89,11 @@ def build_esp(build_dir, size, loader, kernel, modules):
     fs.add_file("/EFI/MICROSOFT/BOOT/BOOTMGFW.EFI", loader)
     fs.mkdir("/SRTOS")
     fs.add_file("/SRTOS/KERNEL.ELF", kernel)
-    fs.add_file("/SRTOS/BOOT.CFG", BOOT_CFG.encode())
+    fs.add_file("/SRTOS/BOOT.CFG", boot_cfg(platform).encode())
+    soc = PLATFORMS[platform]
+    fs.add_file("/SRTOS/PLATFORM",
+                ("%s\n%s\n%s\n%s\n" %
+                 (platform, soc["board"], soc["soc"], soc["cpu"])).encode())
     fs.add_file("/SRTOS/VERSION", ("SurfaceRT_OS 1.0.0 (Tegra Sink)\n"
                                    "built %s\n" % time.strftime("%Y-%m-%d %H:%M:%S")
                                    ).encode())
@@ -113,6 +126,9 @@ def main(argv=None):
     ap.add_argument("--esp-size", type=int, default=40 * MIB)
     ap.add_argument("--data-size", type=int, default=96 * MIB)
     ap.add_argument("--install-size", type=int, default=224 * MIB)
+    ap.add_argument("--platform", default=DEFAULT_PLATFORM,
+                    choices=sorted(PLATFORMS),
+                    help="board this image is built for")
     args = ap.parse_args(argv)
 
     loader_path = os.path.join(args.build_dir, "boot", "BOOTARM.EFI")
@@ -126,6 +142,13 @@ def main(argv=None):
     with open(kernel_path, "rb") as f:
         kernel = f.read()
 
+    token = ("SRTOS-PLATFORM:%s" % args.platform).encode()
+    if token not in kernel:
+        print("mkimage: KERNEL.ELF was not built for %s.\n"
+              "         rebuild it first:  py scripts/build.py kernel --platform %s"
+              % (args.platform, args.platform), file=sys.stderr)
+        return 1
+
     modules = {}
     svc_dir = os.path.join(args.build_dir, "services")
     if os.path.isdir(svc_dir):
@@ -136,8 +159,11 @@ def main(argv=None):
 
     os.makedirs(args.out, exist_ok=True)
 
+    soc = PLATFORMS[args.platform]
+    print("mkimage: %s (%s)" % (soc["board"], soc["soc"]))
     print("mkimage: ESP %d MiB" % (args.esp_size // MIB))
-    esp = build_esp(args.build_dir, args.esp_size, loader, kernel, modules)
+    esp = build_esp(args.build_dir, args.esp_size, loader, kernel, modules,
+                    args.platform)
     if len(esp) > args.esp_size:
         print("mkimage: ESP does not fit", file=sys.stderr)
         return 1
@@ -172,7 +198,9 @@ def main(argv=None):
         "srtos-disk.img": disk,
         "srtos-usb.img": bytes(usb),
     }
-    manifest = ["SurfaceRT_OS image manifest", "built: %s" % time.ctime(), ""]
+    manifest = ["SurfaceRT_OS image manifest", "built: %s" % time.ctime(),
+                "platform: %s - %s (%s)" % (args.platform, soc["board"],
+                                           soc["soc"]), ""]
     for name, data in outputs.items():
         path = os.path.join(args.out, name)
         with open(path, "wb") as f:

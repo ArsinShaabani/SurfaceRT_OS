@@ -9,7 +9,7 @@
 #include <srtos/kernel.h>
 #include <srtos/arch.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define I2C_TIMEOUT_US 20000
 #define I2C_BUSES 5
@@ -20,22 +20,22 @@ int i2c_init(void)
 {
     int bus;
     for (bus = 0; bus < I2C_BUSES; bus++) {
-        uptr base = T30_I2C_BASE(bus);
+        uptr base = TEGRA_I2C_BASE(bus);
         writel(0, base + I2C_CNFG);
         writel(0x1E, base + I2C_CLK_DIV);
         writel(0xFFFFFFFFu, base + I2C_INTR_MASK);
         writel(I2C_CNFG_NEW_MASTER | I2C_CNFG_DEBOUNCE, base + I2C_CNFG);
     }
     g_inited = 1;
-    pr_info("i2c: %d buses at 0x%08x\n", I2C_BUSES, T30_I2C_BASE(0));
+    pr_info("i2c: %d buses at 0x%08x\n", I2C_BUSES, TEGRA_I2C_BASE(0));
     return 0;
 }
 
 static int i2c_wait_idle(uptr base)
 {
-    u32 start = readl(T30_TMR_BASE + TMR_USEC_CNTR);
+    u32 start = readl(TEGRA_TMR_BASE + TMR_USEC_CNTR);
     while (readl(base + I2C_STATUS) & I2C_STATUS_BUSY) {
-        if ((u32)(readl(T30_TMR_BASE + TMR_USEC_CNTR) - start) > I2C_TIMEOUT_US) {
+        if ((u32)(readl(TEGRA_TMR_BASE + TMR_USEC_CNTR) - start) > I2C_TIMEOUT_US) {
             return -1;
         }
     }
@@ -51,7 +51,7 @@ static int i2c_transfer(int bus, u8 addr, u8 reg, u8 *buf, u32 len, int read)
     if (!g_inited || bus < 0 || bus >= I2C_BUSES || len == 0 || len > 4) {
         return -1;
     }
-    base = T30_I2C_BASE(bus);
+    base = TEGRA_I2C_BASE(bus);
     if (i2c_wait_idle(base) != 0) {
         return -1;
     }
@@ -129,7 +129,7 @@ void i2c_dump(void)
     int bus;
     for (bus = 0; bus < I2C_BUSES; bus++) {
         printk("i2c%d: status=0x%08x cnfg=0x%08x\n", bus,
-               readl(T30_I2C_BASE(bus) + I2C_STATUS),
-               readl(T30_I2C_BASE(bus) + I2C_CNFG));
+               readl(TEGRA_I2C_BASE(bus) + I2C_STATUS),
+               readl(TEGRA_I2C_BASE(bus) + I2C_CNFG));
     }
 }

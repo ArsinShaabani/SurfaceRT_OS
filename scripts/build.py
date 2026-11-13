@@ -62,10 +62,21 @@ def boot_flags(cross_dir):
     ]
 
 
-def kernel_flags(platform="tegra30"):
-    return COMMON_ARM + [
+sys.path.insert(0, str(ROOT / "scripts"))
+from platforms import PLATFORMS, DEFAULT_PLATFORM, describe  # noqa: E402
+
+
+def kernel_flags(platform=DEFAULT_PLATFORM):
+    soc = PLATFORMS.get(platform)
+    if not soc:
+        raise BuildError("unknown platform %r (known: %s)" %
+                         (platform, ", ".join(sorted(PLATFORMS))))
+    flags = [f for f in COMMON_ARM if not f.startswith("-mcpu")]
+    return ["-mcpu=" + soc["mcpu"]] + flags + [
+        "-D" + soc["define"] + "=1",
         "-fno-common", "-O2", "-g",
         "-I" + str(ROOT / "kernel" / "include"),
+        "-I" + str(ROOT / "kernel" / "platform" / "tegra"),
         "-I" + str(ROOT / "kernel" / "platform" / platform),
     ]
 
@@ -278,6 +289,7 @@ def kernel_sources(platform):
     patterns = ["kernel/arch/arm/*.c", "kernel/core/*.c", "kernel/lib/*.c",
                 "kernel/drivers/*/*.c", "kernel/net/*.c", "kernel/fs/*.c",
                 "kernel/services/*.c",
+                "kernel/platform/tegra/*.c",
                 "kernel/platform/%s/*.c" % platform]
     sources = []
     for pattern in patterns:
@@ -286,12 +298,33 @@ def kernel_sources(platform):
     return sources, asm
 
 
-def build_kernel(cross, build, jobs, verbose, platform="tegra30"):
-    print("kernel: %s" % platform)
+def platform_stamp(build, platform, flags):
+    """Force a full kernel rebuild when the board or the flags change."""
+    stamp = Path(build) / "kernel" / ".platform"
+    want = ("%s\n%s\n" % (platform, " ".join(flags))).replace("\\", "/")
+    if stamp.exists():
+        have = stamp.read_text(errors="replace").replace("\\", "/")
+        if have == want:
+            return False
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(want)
+    return True
+
+
+def build_kernel(cross, build, jobs, verbose, platform=DEFAULT_PLATFORM):
+    soc = PLATFORMS.get(platform)
+    if not soc:
+        raise BuildError("unknown platform %r" % platform)
+    print("kernel: %s  (%s)" % (platform, soc["board"]))
     cc = cross + "gcc" + EXE
     out = Path(build) / "kernel"
     out.mkdir(parents=True, exist_ok=True)
     flags = kernel_flags(platform)
+
+    if platform_stamp(build, platform, flags):
+        # different SoC or flags: the old objects are not reusable
+        for stale_obj in list(out.glob("**/*.o")) + list(out.glob("**/*.d")):
+            stale_obj.unlink(missing_ok=True)
 
     sources, asm = kernel_sources(platform)
     objs, tasks = [], []
@@ -401,7 +434,7 @@ def build_tests(build, verbose, host_cc=None, run_tests=True):
 
 
 def build_image(build, out, esp_size=None, data_size=None, install_size=None,
-                verbose=False):
+                verbose=False, platform=DEFAULT_PLATFORM):
     def show(path):
         try:
             return str(Path(path).resolve().relative_to(ROOT))
@@ -410,7 +443,8 @@ def build_image(build, out, esp_size=None, data_size=None, install_size=None,
 
     print("image: assembling %s" % show(out))
     cmd = [sys.executable, str(ROOT / "scripts" / "mkimage.py"),
-           "--build-dir", show(build), "--out", show(out)]
+           "--build-dir", show(build), "--out", show(out),
+           "--platform", platform]
     if esp_size:
         cmd += ["--esp-size", str(esp_size)]
     if data_size:
@@ -448,6 +482,10 @@ def doctor(cross, build):
               "-File scripts\\fetch-toolchain.ps1")
     host_cc = resolve_host_cc()
     print("  host cc       : %s" % (host_cc or "not found (only sim/tests need it)"))
+    print("  platforms     :")
+    for name in sorted(PLATFORMS):
+        soc = PLATFORMS[name]
+        print("    %-9s %-12s %s" % (name, soc["mcpu"], soc["board"]))
     return 0 if cross else 1
 
 # --------------------------------------------------------------------- main --
@@ -464,7 +502,11 @@ def main(argv=None):
     ap.add_argument("--cross", default=None,
                     help="toolchain prefix, e.g. arm-none-eabi-")
     ap.add_argument("--host-cc", default=None)
-    ap.add_argument("--platform", default="tegra30")
+    ap.add_argument("--platform", default=DEFAULT_PLATFORM,
+                    choices=sorted(PLATFORMS),
+                    help="target board: " + "; ".join(
+                        "%s = %s" % (k, v["board"]) for k, v in
+                        sorted(PLATFORMS.items())))
     ap.add_argument("--jobs", type=int, default=0)
     ap.add_argument("--esp-size", type=int, default=0)
     ap.add_argument("--data-size", type=int, default=0)
@@ -536,12 +578,13 @@ def main(argv=None):
             build_services(cross, build, jobs, args.verbose)
         if args.command in ("all", "image"):
             build_image(build, out, args.esp_size, args.data_size,
-                        args.install_size, args.verbose)
+                        args.install_size, args.verbose, args.platform)
     except BuildError as exc:
         print("\nbuild failed: %s" % exc, file=sys.stderr)
         return 1
 
-    print("\ndone in %.1f s" % (time.time() - started))
+    if args.command == "all":
+        print("\ndone in %.1f s" % (time.time() - started))
     return 0
 
 

@@ -22,6 +22,7 @@ import elf2pe
 import fat32
 import gpt
 import srdp
+from platforms import PLATFORMS, DEFAULT_PLATFORM
 
 FAILURES = []
 CHECKS = 0
@@ -172,6 +173,57 @@ def test_toolchain_fetch_helpers():
                   "pinned hash %s" % label)
 
 
+def test_platforms():
+    """Both supported boards must be described consistently end to end."""
+    print("platforms")
+    expected = {"tegra30": "cortex-a9", "tegra114": "cortex-a15"}
+    check(set(PLATFORMS) == set(expected), "platform table entries")
+    for name, mcpu in expected.items():
+        soc = PLATFORMS[name]
+        check(soc["mcpu"] == mcpu, "%s cpu" % name)
+        header = os.path.join(ROOT, "kernel", "platform", name, name + ".h")
+        check(os.path.exists(header), "%s SoC header" % name)
+        if os.path.exists(header):
+            text = open(header).read()
+            check('SRTOS_PLATFORM_TOKEN "%s"' % name in text,
+                  "%s platform token" % name)
+            check(soc["define"] in text, "%s SoC define" % name)
+    # the family wide register map must exist and be shared
+    check(os.path.exists(os.path.join(ROOT, "kernel", "platform", "tegra",
+                                      "tegra_common.h")),
+          "shared tegra register map")
+
+    # build.py must expose both platforms and pick the right -mcpu
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import build
+    for name, mcpu in expected.items():
+        flags = build.kernel_flags(name)
+        check("-mcpu=%s" % mcpu in flags, "%s compile flags" % name)
+        check("-D%s=1" % PLATFORMS[name]["define"] in flags,
+              "%s soc define flag" % name)
+    check(build.kernel_flags("tegra114") != build.kernel_flags("tegra30"),
+          "per-platform flags differ")
+
+    # mkimage must refuse a kernel built for the other board
+    kernel = os.path.join(ROOT, "build", "kernel", "KERNEL.ELF")
+    if os.path.exists(kernel):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            data = open(kernel, "rb").read()
+            marker = b"SRTOS-PLATFORM:"
+            at = data.find(marker)
+            built = data[at + len(marker):].split(b"\x00")[0].decode()                 if at >= 0 else "tegra30"
+            other = [p for p in PLATFORMS if p != built][0]
+            rc = subprocess.run(
+                [sys.executable, os.path.join(ROOT, "scripts", "mkimage.py"),
+                 "--build-dir", os.path.join(ROOT, "build"), "--out", tmp,
+                 "--platform", other],
+                capture_output=True, text=True)
+            check(rc.returncode != 0, "mkimage rejects a kernel for another board")
+            check("not built for" in (rc.stderr + rc.stdout),
+                  "mkimage explains the mismatch")
+
+
 def test_images():
     print("image assembly")
     build = os.path.join(ROOT, "build")
@@ -181,8 +233,16 @@ def test_images():
         print("  SKIP: build the OS first (make)")
         return
     with tempfile.TemporaryDirectory() as tmp:
+        with open(kernel, "rb") as f:
+            kernel_bytes = f.read()
+        marker = b"SRTOS-PLATFORM:"
+        at = kernel_bytes.find(marker)
+        platform = DEFAULT_PLATFORM
+        if at >= 0:
+            platform = kernel_bytes[at + len(marker):].split(b"\x00")[0].decode()
         rc = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkimage.py"),
                              "--build-dir", build, "--out", tmp,
+                             "--platform", platform,
                              "--esp-size", str(40 * 1024 * 1024),
                              "--data-size", str(8 * 1024 * 1024),
                              "--install-size", str(64 * 1024 * 1024)],
@@ -203,6 +263,8 @@ def test_images():
         kernel2 = rd.read("/SRTOS/KERNEL.ELF")
         check(kernel2[:4] == b"\x7fELF", "kernel is an ELF")
         check(kernel2[18:20] == b"\x28\x00", "kernel machine is ARM (0x28)")
+        check(rd.read("/SRTOS/PLATFORM").decode().startswith(platform),
+              "platform marker on the ESP")
         cfg = rd.read("/SRTOS/BOOT.CFG")
         check(b"kernel=KERNEL.ELF" in cfg, "boot config content")
         with open(os.path.join(tmp, "srtos-usb.img"), "rb") as f:
@@ -216,6 +278,7 @@ def main():
     test_elf2pe()
     test_fat32()
     test_gpt()
+    test_platforms()
     test_protocol_vectors()
     test_toolchain_fetch_helpers()
     test_images()

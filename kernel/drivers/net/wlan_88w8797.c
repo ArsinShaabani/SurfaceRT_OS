@@ -21,9 +21,9 @@
 #include <srtos/arch.h>
 #include <srtos/string.h>
 #include <srtos/clock.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
-#define SDIO_HOST_INDEX 2
+#define SDIO_HOST_INDEX PLATFORM_SDMMC_WIFI
 #define SDIO_CMD52 52
 #define SDIO_CMD53 53
 #define SDIO_CCCR_BASE 0x00

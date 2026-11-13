@@ -5,7 +5,7 @@
 #include <srtos/clock.h>
 #include <srtos/pmic.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 static volatile int g_panicked;
 
@@ -36,13 +36,18 @@ void reboot_now(void)
     printk("pmc: rebooting\n");
     pmic_poweroff_prepare();
     /* PMC main reset */
-    writel(readl(T30_PMC_BASE + PMC_CNTRL) | PMC_CNTRL_MAIN_RST,
-           T30_PMC_BASE + PMC_CNTRL);
+    writel(readl(TEGRA_PMC_BASE + PMC_CNTRL) | PMC_CNTRL_MAIN_RST,
+           TEGRA_PMC_BASE + PMC_CNTRL);
     mdelay(50);
-    /* fall back to the A9 watchdog */
-    writel(0, T30_A9_WATCHDOG + 0x08);
-    writel(0xFFFFFFFFu, T30_A9_WATCHDOG + 0x00);
-    writel(BIT(0) | BIT(1) | BIT(2) | BIT(3), T30_A9_WATCHDOG + 0x08);
+#if defined(SRTOS_SOC_TEGRA30)
+    /* Cortex-A9 has a per-CPU watchdog we can kick as a last resort. */
+    writel(0, TEGRA_A9_WATCHDOG + 0x08);
+    writel(0xFFFFFFFFu, TEGRA_A9_WATCHDOG + 0x00);
+    writel(BIT(0) | BIT(1) | BIT(2) | BIT(3), TEGRA_A9_WATCHDOG + 0x08);
+#else
+    /* Cortex-A15 has no per-CPU watchdog; the PMC master reset above is the
+     * documented path on Tegra 4 (see the PMC chapter of the TRM). */
+#endif
     for (;;) {
         wfi();
     }
@@ -52,8 +57,8 @@ void poweroff_now(void)
 {
     printk("pmc: powering off\n");
     pmic_poweroff_prepare();
-    writel(readl(T30_PMC_BASE + PMC_CNTRL) | PMC_CNTRL_PWRREQ_OE,
-           T30_PMC_BASE + PMC_CNTRL);
+    writel(readl(TEGRA_PMC_BASE + PMC_CNTRL) | PMC_CNTRL_PWRREQ_OE,
+           TEGRA_PMC_BASE + PMC_CNTRL);
     /* pull the power request line to the PMIC */
     pmic_poweroff();
     mdelay(100);

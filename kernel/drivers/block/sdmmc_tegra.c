@@ -16,7 +16,7 @@
 #include <srtos/string.h>
 #include <srtos/gpio.h>
 #include <srtos/clock.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 #include <srtos/sd_bits.h>
 
 #define SDMMC_TIMEOUT_MS 500
@@ -370,14 +370,15 @@ struct sdmmc_host *sdmmc_host_get(int index)
     return 0;
 }
 
+/* Board wiring comes from the platform header (see <srtos/soc.h>). */
 static const struct {
     int index;
     const char *name;
     const char *what;
     int is_sd;
 } board_slots[] = {
-    { 4, "mmcblk0", "eMMC", 0 },     /* Surface RT: 32/64 GB internal eMMC */
-    { 1, "mmcblk1", "microSD", 1 },  /* microSDXC slot on SDMMC1          */
+    { PLATFORM_SDMMC_EMMC, "mmcblk0", "eMMC", 0 },
+    { PLATFORM_SDMMC_SD, "mmcblk1", "microSD", 1 },
 };
 
 int sdmmc_init(void)
@@ -392,7 +393,7 @@ int sdmmc_init(void)
 
         h->index = board_slots[i].index;
         h->name = board_slots[i].name;
-        h->base = T30_SDMMC_BASE(h->index - 1);
+        h->base = TEGRA_SDMMC_BASE(h->index - 1);
 
         mmc_wr(h, SDHCI_POWER_CONTROL, 0);
         if (mmc_reset(h) != 0) {

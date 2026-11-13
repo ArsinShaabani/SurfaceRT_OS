@@ -21,6 +21,23 @@ survived.  Be honest with yourself about the difference before flashing a device
 | Thermal / fuse | `drivers/misc/tegra_misc.c` | partial | chip ID + revision; temperature needs the per-SKU calibration table |
 | Input core | `drivers/input/input.c` | implemented | queue, keymap, shell injection |
 
+## SoC specific pieces (Tegra 3 vs Tegra 4)
+
+Most drivers are family-wide.  These four are not, and are selected by the
+platform headers:
+
+| Piece | Tegra 3 (T30) | Tegra 4 (T114) |
+|---|---|---|
+| Counter / uptime | `arch/arm/timer_a9.c` (A9 global timer) | `arch/arm/timer_generic.c` (`CNTPCT`) |
+| Scheduler tick | A9 private timer, PPI 29 | `CNTP_TVAL`, PPI 30 |
+| L2 cache | PL310 programming in `cache.c` | no-op (cluster L2) |
+| Exception level at boot | SVC | SVC or HYP; `start.S` drops EL2 -> EL1 |
+
+The EL2 drop clears `HCR.VM/IMO/FMO/AMO` and sets `CNTHCTL.EL1PCTEN|EL1PCEN`.
+If a Surface 2 boots and immediately faults on the first timer access, that is
+the code to look at (and the firmware probably needs the timer PPI routed to
+non-secure, see the GIC section).
+
 ## What "not yet validated" means in practice
 
 Three things are most likely to need adjustment on a real device, in this order:

@@ -13,7 +13,7 @@
 #include <srtos/kernel.h>
 #include <srtos/mm.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define SECTION_SHIFT 20
 #define SECTION_SIZE (1u << SECTION_SHIFT)
@@ -54,7 +54,7 @@ int mmu_init(void)
     memset(l1_table, 0, sizeof(l1_table));
 
     /* Devices first: everything below 0x80000000 is MMIO on Tegra 3. */
-    map_range(0x00000000u, T30_RAM_BASE, MMU_ATTR_DEVICE);
+    map_range(0x00000000u, TEGRA_RAM_BASE, MMU_ATTR_DEVICE);
 
     /* RAM: honour the memory map handed over by the loader. */
     if (g_bi) {
@@ -64,11 +64,11 @@ int mmu_init(void)
             uptr start = (uptr)r->base & ~(SECTION_SIZE - 1);
             uptr end = ((uptr)r->base + (uptr)r->size + SECTION_SIZE - 1) &
                        ~(SECTION_SIZE - 1);
-            if (end <= T30_RAM_BASE) {
+            if (end <= TEGRA_RAM_BASE) {
                 continue;
             }
-            if (start < T30_RAM_BASE) {
-                start = T30_RAM_BASE;
+            if (start < TEGRA_RAM_BASE) {
+                start = TEGRA_RAM_BASE;
             }
             if (r->type == SRT_MEM_USABLE || r->type == SRT_MEM_RESERVED ||
                 r->type == SRT_MEM_ACPI || r->type == SRT_MEM_RUNTIME ||
@@ -79,8 +79,8 @@ int mmu_init(void)
             }
         }
     } else {
-        map_range(T30_RAM_BASE, 0x100000000ull > T30_RAM_BASE + T30_RAM_SIZE_MAX
-                                ? T30_RAM_BASE + T30_RAM_SIZE_MAX : 0xFFFF0000u,
+        map_range(TEGRA_RAM_BASE, 0x100000000ull > TEGRA_RAM_BASE + TEGRA_RAM_SIZE_MAX
+                                ? TEGRA_RAM_BASE + TEGRA_RAM_SIZE_MAX : 0xFFFF0000u,
                   MMU_ATTR_NORMAL_WB);
     }
 
@@ -132,6 +132,6 @@ void mmu_dump(void)
     }
     printk("mmu: %u of 4096 sections mapped (%u MiB)\n", mapped,
            mapped);
-    printk("mmu: ram [0x%08x..0x%08x) normal WB\n", T30_RAM_BASE, 0x80000000u);
-    printk("mmu: mmio [0x00000000..0x%08x) device\n", T30_RAM_BASE);
+    printk("mmu: ram [0x%08x..0x%08x) normal WB\n", TEGRA_RAM_BASE, 0x80000000u);
+    printk("mmu: mmio [0x00000000..0x%08x) device\n", TEGRA_RAM_BASE);
 }

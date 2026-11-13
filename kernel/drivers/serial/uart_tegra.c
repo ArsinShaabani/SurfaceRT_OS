@@ -11,11 +11,11 @@
 #include <srtos/irq.h>
 #include <srtos/arch.h>
 #include <srtos/string.h>
-#include "tegra30.h"
+#include <srtos/soc.h>
 
 #define UART_NUM 0
-#define UART_BASE T30_UART_BASE(UART_NUM)
-#define UART_IRQ 68 /* Tegra 3: UART-A = SPI 68 */
+#define UART_BASE TEGRA_UART_BASE(UART_NUM)
+#define UART_IRQ PLATFORM_IRQ_UART_A
 
 #define RX_BUF_SIZE 512
 
