@@ -18,7 +18,13 @@ sync
 > The image is 264 MiB by default; the stick must be at least that large.
 > Writing it destroys everything on the stick.
 
-On Windows use Rufus in "DD image" mode; on macOS use `dd` with `/dev/rdiskN`.
+**Windows:** build the image with `build.cmd` (or `py scripts\build.py all`), then
+write `dist\srtos-usb.img` with [Rufus](https://rufus.ie) in **DD image** mode
+(or balenaEtcher).  Do not just copy the file to the stick - the stick must be a
+raw GPT disk, not a FAT partition with a file on it.
+
+**macOS:** `sudo dd if=dist/srtos-usb.img of=/dev/rdiskN bs=4m` (`diskutil list`
+to find `N`; the raw `rdiskN` device is much faster).
 
 ## 2. Boot the tablet from the stick
 

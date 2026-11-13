@@ -34,15 +34,17 @@ void myservice_thread_main(void *arg) { for (;;) msleep(1000); }
 Then start a thread in `kmain()` and, optionally, call `myservice_register()` from
 `svc_manager_init()` so `svc start myservice` works.
 
-The kernel Makefile globs `services/*.c`; no build change needed.
+`scripts/build.py` globs `kernel/services/*.c`; no build change needed.
 
 ## Add a loadable module (no kernel rebuild)
 
 1. Create `services/mymod/mymod.c` with
    `int srt_module_init(const struct srt_host_api *api, u32 abi)`.
-2. Add `mymod` to `MODULES` in `services/Makefile`.
-3. `make services` produces `build/services/mymod.SVC`; the image builder copies
-   it to `\SERVICES\MYMOD.SVC`.
+2. Nothing else: every `services/<name>/<name>.c` directory is picked up
+   automatically (`make services`, or `py scripts\build.py services` on
+   Windows).
+3. `build/services/mymod.SVC` is produced; the image builder copies it to
+   `/SERVICES/MYMOD.SVC` on the ESP.
 4. On the tablet: `svc load /services/mymod.svc`, then `svc` to list it.
 
 Modules are position independent ELF images; they may only use the host API

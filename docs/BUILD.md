@@ -4,23 +4,64 @@ The whole build is `make`.  No SDK, no package manager, no CMake, no Ninja.
 
 ## Requirements
 
-* Linux or macOS (WSL works too)
-* `make`, `python3` (3.8+)
+* Python 3.8+ (the only hard requirement besides a compiler)
 * an ARM cross compiler: either
-  * **nothing at all** - run `./toolchain/fetch-toolchain.sh` once; it downloads a
-    pinned, self-contained `arm-none-eabi-gcc` 13.2.1 into `.toolchain/` and
-    verifies its SHA-256, or
-  * `gcc-arm-none-eabi` from your distribution (`make CROSS_COMPILE=arm-none-eabi-`)
+  * **nothing at all** - run the fetch script once; it downloads a pinned,
+    self-contained `arm-none-eabi-gcc` 13.2.1 into `.toolchain/` and verifies its
+    SHA-256, or
+  * `gcc-arm-none-eabi` from your distribution / MSYS2
+    (`make CROSS_COMPILE=arm-none-eabi-`)
 
 No mtools, no sgdisk, no mkfs.vfat: the FAT32 and GPT writers live in
-`scripts/` and are plain Python.
+`scripts/` and are plain Python.  No CMake, no Ninja, no Visual Studio, no
+administrator rights.
 
-## Build
+## Build (Linux / macOS)
 
 ```sh
 ./toolchain/fetch-toolchain.sh   # once, ~250 MB download
 make                             # loader + kernel + modules + images
 ```
+
+## Build (Windows, native)
+
+Everything runs from `cmd.exe` or PowerShell - no WSL and no MSYS shell needed:
+
+```bat
+build.cmd                        :: first run fetches the toolchain, then builds
+```
+
+or step by step:
+
+```bat
+fetch-toolchain.cmd              :: once: pinned win32-x64 arm-none-eabi-gcc
+py scripts\build.py all          :: loader + kernel + modules + dist\*.img
+```
+
+The same from PowerShell, with nicer output:
+
+```powershell
+.\build.ps1                      # everything (fetches the toolchain if missing)
+.\build.ps1 -Command tests       # host unit tests
+.\build.ps1 -Command clean
+```
+
+If PowerShell blocks script execution, run
+`powershell -ExecutionPolicy Bypass -File .\build.ps1` - which is exactly what
+`build.cmd` does, so plain `build.cmd` is the easiest path.
+
+The toolchain is unpacked into `.toolchain\xpack-arm-none-eabi-gcc-13.2.1-1.1\`
+and picked up automatically: nothing is added to `PATH` and nothing outside the
+checkout is touched.  Already have `arm-none-eabi-gcc`?
+
+```bat
+py scripts\build.py all --cross C:\msys64\mingw64\bin\arm-none-eabi-
+```
+
+`build.cmd`, `build.ps1` and `make` all run the same `scripts/build.py`, so the
+outputs are identical on every host OS.  `sim` and `tests` additionally need a
+host C compiler (`gcc`/`clang`, for example from MSYS2); they are the only
+targets not covered by the ARM toolchain.
 
 What lands where:
 
@@ -40,12 +81,14 @@ dist/MANIFEST.txt           sizes and SHA-256 of every artefact
 
 ## Useful targets
 
-```sh
-make image        # rebuild only the images
-make test         # 57 host checks (C) + 48 checks (Python)
-make sim          # build the display-sink simulator
-make clean
-```
+| POSIX | Windows | What it does |
+|---|---|---|
+| `make` | `build.cmd` | everything |
+| `make image` | `py scripts\build.py image` | rebuild only the images |
+| `make test` | `build.cmd test` | 57 host checks (C) + 48 checks (Python) |
+| `make sim` | `py scripts\build.py sim` | display-sink simulator |
+| `make doctor` | `py scripts\build.py doctor` | show the detected toolchain |
+| `make clean` | `build.cmd clean` | remove `build/` and `dist/` |
 
 ## How the pieces fit together
 

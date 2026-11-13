@@ -31,6 +31,8 @@ image, and the tablet can install the OS onto its own eMMC from that stick.
 
 ### شروع سریع
 
+روی **لینوکس / مک**:
+
 ```sh
 ./toolchain/fetch-toolchain.sh      # فقط بار اول
 make                                # کرنل + لودر + ایمیج‌ها
@@ -43,6 +45,17 @@ srtos> disp start
 # روی کامپیوتر:
 python3 host/srdisplay/sender.py --host <IP تبلت> --stats
 ```
+
+روی **ویندوز** (بدون WSL، فقط پایتون ۳ لازم است):
+
+```bat
+build.cmd                           :: بار اول خودش تول‌چین را دانلود می‌کند
+:: خروجی: dist\srtos-usb.img  ->  با Rufus در حالت DD روی فلش بنویسید
+```
+
+یا گام‌به‌گام: `fetch-toolchain.cmd` و بعد `py scripts\build.py all`.
+تست‌ها: `build.cmd test`، پاک‌سازی: `build.cmd clean`، وضعیت تول‌چین:
+`py scripts\build.py doctor`.
 
 ### نکته‌ی مهم و صادقانه در مورد بوت
 
@@ -78,12 +91,23 @@ Surface RT از کارخانه با **Secure Boot قفل** عرضه شده و ف
 
 ## Build
 
+| Host | First time | Then |
+|---|---|---|
+| Linux / macOS | `./toolchain/fetch-toolchain.sh` | `make` |
+| Windows (cmd) | `build.cmd` (fetches the toolchain itself) | `build.cmd` |
+| Windows (PowerShell) | `.\build.ps1` | `.\build.ps1` |
+| Any OS, explicit | - | `py scripts\build.py all` |
+
 ```sh
-./toolchain/fetch-toolchain.sh   # once (or use your distro's gcc-arm-none-eabi)
-make                             # everything
-make test                        # host test suites
-make sim                         # display sink simulator
+make test        # host test suites (57 C checks + 48 python checks)
+make sim         # display sink simulator
+make doctor      # which toolchain was detected
 ```
+
+The build itself is a single cross platform driver, `scripts/build.py`, so
+`make`, `build.cmd` and `build.ps1` produce identical artefacts.  See
+[docs/BUILD.md](docs/BUILD.md) for the Windows details (execution policy, MSYS2,
+`--cross`, host compiler for the simulator).
 
 Outputs (in `dist/`): `BOOTARM.EFI`, `esp.img`, `srtos-disk.img`,
 `srtos-usb.img`, `MANIFEST.txt` (sizes + SHA-256).

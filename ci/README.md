@@ -18,6 +18,9 @@ What they do:
 * **build**: installs `gcc-arm-none-eabi`, runs `make`, `make test`, `make sim`,
   streams three frames from the sender into the simulator, and uploads the
   loader plus the disk images as artefacts.
+* **windows-native**: downloads the pinned win32-x64 toolchain (cached between
+  runs), then builds the whole OS with `py scripts/build.py all` - the same
+  driver `make` uses on Linux, which keeps the Windows path honest.
 * **tests**: runs the Python suites only, so pull requests get feedback in a
   couple of seconds without needing a cross compiler.
 

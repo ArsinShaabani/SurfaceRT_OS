@@ -1,0 +1,13 @@
+# Default: LF everywhere; built artefacts are binary.
+* text=auto eol=lf
+
+# Later rules win, so batch/PowerShell files get CRLF (cmd.exe is happier).
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+*.img  binary
+*.EFI  binary
+*.ELF  binary
+*.SVC  binary
+*.ppm  binary

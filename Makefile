@@ -1,71 +1,53 @@
 # SurfaceRT_OS - top level build
 #
-#   make            build loader + kernel + modules and the boot images
+#   make            build loader + kernel + modules + images
 #   make image      only rebuild the images in dist/
 #   make test       host unit tests (no ARM hardware needed)
 #   make sim        host build of the portable core + display sink
+#   make doctor     show the detected toolchain
 #   make clean
 #
-# No SDK required: `make` uses an arm-none-eabi-gcc found on PATH, or the pinned
-# toolchain that ./toolchain/fetch-toolchain.sh installs into .toolchain/.
+# The work is done by scripts/build.py, which is plain Python and also runs on
+# Windows (`py scripts\build.py all`), so there is exactly one place that knows
+# the compiler flags:
+#
+#   Linux/macOS : ./toolchain/fetch-toolchain.sh  once, then make
+#   Windows     : build.cmd      (or .\build.ps1)  once, then build.cmd
 
-PYTHON  ?= python3
-BUILD   ?= build
-OUT     ?= dist
+PYTHON ?= python3
+BUILD  ?= build
+OUT    ?= dist
+CMD    := $(PYTHON) scripts/build.py --build-dir $(BUILD) --out $(OUT)
 
-# --- toolchain discovery -----------------------------------------------------
-TOOLCHAIN_DIR := $(abspath $(firstword $(wildcard .toolchain/xpack-arm-none-eabi-gcc-*/bin)))
-ifeq ($(origin CROSS_COMPILE),undefined)
-  ifneq ($(TOOLCHAIN_DIR),)
-    CROSS_COMPILE := $(TOOLCHAIN_DIR)/arm-none-eabi-
-  else ifneq ($(shell command -v arm-none-eabi-gcc 2>/dev/null),)
-    CROSS_COMPILE := arm-none-eabi-
-  else
-    CROSS_COMPILE := missing-
-  endif
-endif
+.PHONY: all boot kernel services image images test sim clean doctor help
 
-export CROSS_COMPILE
-export BUILD := $(abspath $(BUILD))
+all: boot kernel services image
 
-.PHONY: all boot kernel services image images test sim clean distclean help check-toolchain
+boot:
+	$(CMD) boot
 
-all: check-toolchain boot kernel services image
+kernel:
+	$(CMD) kernel
 
-check-toolchain:
-	@if [ "$(CROSS_COMPILE)" = "missing-" ]; then \
-	 echo "error: no arm-none-eabi-gcc found."; \
-	 echo "       run ./toolchain/fetch-toolchain.sh once (downloads a pinned,"; \
-	 echo "       self-contained toolchain into .toolchain/) or install gcc-arm-none-eabi"; \
-	 echo "       from your distribution and re-run make."; \
-	 exit 1; \
-	fi
-	@$(CROSS_COMPILE)gcc --version | head -1
-
-boot: check-toolchain
-	$(MAKE) -C boot
-
-kernel: check-toolchain
-	$(MAKE) -C kernel
-
-services: check-toolchain
-	$(MAKE) -C services
+services:
+	$(CMD) services
 
 image: boot kernel services
-	$(PYTHON) scripts/mkimage.py --build-dir $(BUILD) --out $(OUT)
+	$(CMD) image
 
 images: image
 
 test:
-	$(MAKE) -C tests run
+	$(PYTHON) scripts/build.py --build-dir $(BUILD) tests
 
 sim:
-	$(MAKE) -C sim
+	$(PYTHON) scripts/build.py --build-dir $(BUILD) sim
 
 clean:
-	rm -rf $(BUILD) $(OUT)
-	$(MAKE) -C tests clean || true
-	$(MAKE) -C sim clean || true
+	$(PYTHON) scripts/build.py --build-dir $(BUILD) --out $(OUT) clean
+
+doctor:
+	$(PYTHON) scripts/build.py doctor
 
 help:
-	@sed -n "2,14p" Makefile
+	@sed -n '2,20p' Makefile

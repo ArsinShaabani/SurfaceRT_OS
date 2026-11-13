@@ -46,4 +46,6 @@ by block and the register map is centralised.
 4. Register the device with the subsystem (`block_register`, `net_register_device`,
    `driver_register`, ...).
 
-No Makefile changes are needed: the kernel Makefile globs `drivers/*/*.c`.
+No build changes are needed: `scripts/build.py` globs `kernel/drivers/*/*.c`.
+That is also why the tree builds identically on Windows and Linux - there is
+no per-file list to keep in sync.

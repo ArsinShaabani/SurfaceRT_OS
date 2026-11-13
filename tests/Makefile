@@ -1,28 +1,14 @@
-# SurfaceRT_OS - host unit tests
+# SurfaceRT_OS - host unit tests (C + Python)
 
-CC     ?= cc
+PYTHON ?= python3
 BUILD  ?= ../build
-OUT    := $(BUILD)/tests
 
-CFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -DSRTOS_HOST \
-          -I../kernel/include
+all:
+	$(PYTHON) ../scripts/build.py --build-dir $(BUILD) tests
 
-SRCS := test_main.c ../kernel/lib/string.c ../kernel/lib/vsnprintf.c \
-        ../kernel/core/heap.c ../kernel/services/srdp_core.c ../boot/elfload.c
-
-all: $(OUT)/srtos-tests
-
-$(OUT)/srtos-tests: $(SRCS) | $(OUT)
-	$(CC) $(CFLAGS) -o $@ $(SRCS)
-
-$(OUT):
-	mkdir -p $(OUT)
-
-run: $(OUT)/srtos-tests
-	$(OUT)/srtos-tests ../build/kernel/KERNEL.ELF
-	$(PYTHON) pytests/run_tests.py
+run: all
 
 clean:
-	rm -rf $(OUT)
+	rm -rf $(BUILD)/tests
 
 .PHONY: all run clean
